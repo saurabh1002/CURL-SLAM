@@ -1,0 +1,22 @@
+services:
+  curl_slam:
+    container_name: curl_slam_cpu_container
+    image: curl_slam_cpu:v0
+    build:
+      context: ..
+      dockerfile: docker/curl_slam_cpu.dockerfile
+      args:
+        NUM_THREADS: 12
+    environment:
+      DISPLAY: ${DISPLAY}
+      XAUTHORITY: /root/.Xauthority
+      QT_X11_NO_MITSHM: "1"
+    volumes:
+      - /tmp/.X11-unix:/tmp/.X11-unix:rw
+      - ${HOME}/.Xauthority:/root/.Xauthority:rw
+    network_mode: host
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    stdin_open: true
+    tty: true
+    command: /bin/bash

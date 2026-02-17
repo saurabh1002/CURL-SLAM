@@ -1,0 +1,4 @@
+services:
+  curl_slam:
+    volumes:
+      - ${HOST_DATA_DIR}:/home/user/data

@@ -1,0 +1,25 @@
+services:
+  curl_slam:
+    container_name: curl_slam_gpu_container
+    image: curl_slam_gpu:v0
+    build:
+      context: ..
+      dockerfile: docker/curl_slam_gpu.dockerfile
+      args:
+        NUM_THREADS: 12
+    environment:
+      NVIDIA_DRIVER_CAPABILITIES: "graphics,compute,utility"
+      DISPLAY: ${DISPLAY}
+      XAUTHORITY: /root/.Xauthority
+      QT_X11_NO_MITSHM: "1"
+    gpus: all
+    volumes:
+      - /tmp/.X11-unix:/tmp/.X11-unix:rw
+      - ${HOME}/.Xauthority:/root/.Xauthority:rw
+    network_mode: host
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    privileged: true
+    stdin_open: true
+    tty: true
+    command: /bin/bash

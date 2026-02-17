@@ -1,0 +1,16 @@
+build
+*build*
+cmake*variables*
+*.txt
+!CMakeLists.txt
+tmp_data
+.idea
+*tmp*
+*.mat
+*.asv
+*.stl
+scripts/*.json
+scripts/*.png
+.vscode
+*.pyc
+!requirements.txt

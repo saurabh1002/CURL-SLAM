@@ -1,0 +1,116 @@
+DEBUG:
+  results_dir: "/home/user/results"
+  data_set: "Newer_College" # KITTI Newer_College Fusion_Portable
+  seq: "math_e" # 05 Newer_College_Short_01 Newer_College_Long_02 Newer_College_Long_02_quad  quad_e math_e ug_e cloister stairs handheld_cateen_night
+
+  is_save_final_results: true # T_w_lidar poses
+  is_evaluate_time: true
+  is_save_final_map: true
+  PUB:
+    is_pub_dense_reconstruction: false
+
+AABB:
+  extra_skin_thickness: 0.0 # the lower more precise data association 0.1 or 0.2
+
+DIRECT_METHOD:
+  CURL_ODOMETRY:
+    w: 30 # minimum_rso = minimum_dis / w
+    pyramid_minimum_img_rso: 15
+    mask_gap: 0.5477 #m
+    update_initialization_times: 200
+    update_steps: 5
+    update_distance: 5
+  BA:
+    is_average: false
+
+SphVoxelUpdate:
+  # multi-thread num
+  patch_initialization_thread_num: 16
+  data_association_thread_num: 16
+  overlap_plan_thread_num: 4
+  BA_thread_num: 8
+  PGO_thread_num: 4
+  BA_recons_downsample_stride: 2 # regularization points downsample stride (2 => width/2 & height/2)
+  minimum_dis: 1.5 # -1 means disable
+  maximum_dis: -1 # -1 means disable
+  ODOMETRY:
+    max_patch_search_box_times: -1 # times of the current scan's bounding box -1 means no restrictions
+    is_use_all_associated_patches: false
+    is_kitti_correct: false
+    is_deskew: false
+  TRAJECTORY_SEGMENTATION:
+    minimum_observation_num: 50
+  SEGMENTATION:
+    is_seg_only: false
+    # cut larger patch into small pieces
+    cut_threshold: 1.5 # (m)
+  FILTER:
+    # patch filter
+    patch_minimun_pts_num_after_filter: 3 # points num needed for initialization after filtering
+    # voxel grid filter
+    is_voxel_grid_filter: true # should disable this
+    leaf_size: 0.2
+  NEW_LANDMARK_GENERATION:
+    minimum_points_to_fix_projection_direction: 100
+    minimum_points_to_add_new_patch_seg: 0
+    minimum_points_to_add_new_patch_ground: 0
+    highest_IoU_new_landmark_thres: 0.1 # this one is used
+    largest_distance: -1
+  LOCAL_BA:
+    keyframe_mini_squared_dis: 5 # squared distance
+    keyframe_degree_change: 10
+    keyframe_IQR_cost_thres: 1.5
+    points_regularizer_weight_square_root: 1 # must larger than 1 to make it work
+    max_residual: 3
+    opt_status: "half_separate" # totally_separate half_separate no_separate
+    max_num_iterations: 200
+    function_tolerance: 0.01
+
+SH_TABLE:
+  is_speed_up: true
+  max_SH_degree: 5
+  warping_SH_degree: 5 # used to smooth the reconstruction when using direct method
+  ground_SH_degree: 2
+  SH_scale: 0.8
+  azi_rso: 300
+  elev_rso: 300
+  init_SPH_pass: 1
+  init_SPH_granularity: 1
+  inv_method: "normal"
+  bad_thres: 0.5
+  medium_thres: 0.2
+  sampling_factor: 1
+  is_SH_analytic_jacobian: false
+
+CURL_TRACKING:
+  frequency: 11
+  is_frame_to_frame: false
+  map_update_thread_num: 16
+  DATA_ASSOCIATION:
+    region_width_elements: 5
+    max_region_seg_pairs: 15 # -1 means no restrictions 25
+    max_region_ground_pairs: 10 # -1 means no restrictions 10
+  LOCAL_MAP:
+    local_window_size: -1 # -1 means unlimited
+  OPTIMIZATION:
+    # ceres settings
+    max_num_iterations: 500
+    update_state_every_iteration: false
+    is_robust_kernel: true
+    seg_kernel_threshold: 0.01
+    seg_max_valid_residual: 3 # 2cm per meter
+    opt_thread_num: 16
+    ground_opt_step: 3
+  VISUALIZATION:
+    color_change_step: 0.0
+
+LOOP_CLOSURE:
+  is_enable: true
+  search_radius: 10 # (m)
+  remove_overlap_keyframe_patches_region: 5 # remove the patches of newly created keyframes in this region after loop closure (radius 5m)
+  remove_overlap_iou_thres: 0.1 # IoU threshold to remove overlapped patches after loop closure
+  simple_loop_closure_search_radius: 3 # (m) for radius
+  minimum_middle_segment_valid_dis: 5 # (m)
+  association_rate_for_opt_history_keyframe: 0.6
+  DATA_ASSOCIATION:
+    region_width_elements: 5 # be same to the one in CURL_TRACKING
