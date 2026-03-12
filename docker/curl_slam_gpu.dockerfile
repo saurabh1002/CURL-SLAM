@@ -180,7 +180,6 @@ RUN echo "source /home/user/catkin_ws/devel/setup.bash" >> /home/user/.bashrc
 
 RUN sudo chown -R user:user /home/user/catkin_ws
 # Disable rviz
-# WORKDIR /home/user/catkin_ws/src/TRAVEL/launch
 # RUN sed -i 's|<node name="rivz_mapping" pkg="rviz" type="rviz" args="-d $(find curl_slam)\/rviz\/rviz_mapping.rviz"\/>|<!--     <node name="rivz_mapping" pkg="rviz" type="rviz" args="-d $(find curl_slam)\/rviz\/rviz_mapping.rviz"\/> -->|' run_patchwork_kitti.launch
 
 RUN echo 'source /home/user/.bashrc' > /root/.bashrc
