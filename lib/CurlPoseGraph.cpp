@@ -1195,7 +1195,8 @@ void CurlPoseGraph<BasicType>::run_local_BA_after_pose_update(
     const std::shared_ptr<const std::unordered_set<unsigned int>> &history_label_frame_num_snapshot_ptr,
     int max_frame_num_for_ba, BADeferredPack<BasicType> *deferred_pack_out,
     const std::shared_ptr<const LoopPoseSnapshotMap> &loop_pose_snapshot_ptr,
-    const std::shared_ptr<const std::unordered_set<unsigned int>> &history_frame_num_snapshot_ptr) {
+    const std::shared_ptr<const std::unordered_set<unsigned int>> &history_frame_num_snapshot_ptr,
+    PoseGraph3dErrorTerm *task_icp_constrain_ptr) {
     if (!ba_current_keyframe_ptr || !ba_history_keyframe_ptr) {
         return;
     }
@@ -1474,8 +1475,9 @@ void CurlPoseGraph<BasicType>::run_local_BA_after_pose_update(
         last_keyframe_ptr = keyframe_ptr;
     }
     // remove icp constrain
-    if (icp_loop_closure_cost_function) {
-        PoseGraph3dErrorTerm *old_icp_constrain_ptr = icp_loop_closure_cost_function;
+    PoseGraph3dErrorTerm *old_icp_constrain_ptr =
+        task_icp_constrain_ptr ? task_icp_constrain_ptr : icp_loop_closure_cost_function;
+    if (old_icp_constrain_ptr) {
         if (defer_pose_graph_updates) {
             target_pending_ba_remove_icp_constrain_ptr = old_icp_constrain_ptr;
         } else {

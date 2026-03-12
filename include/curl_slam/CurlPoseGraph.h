@@ -73,6 +73,7 @@ template <typename BasicType> class CurlPoseGraph {
     void add_loop_closure_constrain(const std::shared_ptr<KeyframeInfo<BasicType>> &_history_keyframe_ptr,
                                     const std::shared_ptr<KeyframeInfo<BasicType>> &_current_keyframe_ptr,
                                     const Pose3d &T_his_curr, const bool is_icp_constrain);
+    PoseGraph3dErrorTerm *get_latest_icp_loop_closure_cost_function() const { return icp_loop_closure_cost_function; }
     /**
      * @input 1: time of the current frame
      * @input 2: position of the current keyframe
@@ -127,7 +128,8 @@ template <typename BasicType> class CurlPoseGraph {
         const std::shared_ptr<const LoopPoseSnapshotMap> &loop_pose_snapshot_ptr =
             std::shared_ptr<const LoopPoseSnapshotMap>(),
         const std::shared_ptr<const std::unordered_set<unsigned int>> &history_frame_num_snapshot_ptr =
-            std::shared_ptr<const std::unordered_set<unsigned int>>());
+            std::shared_ptr<const std::unordered_set<unsigned int>>(),
+        PoseGraph3dErrorTerm *task_icp_constrain_ptr = nullptr);
     void apply_pending_ba_pose_graph_updates();
     void apply_pending_ba_pose_graph_updates(BADeferredPack<BasicType> &pack);
     std::shared_ptr<KeyframeInfo<BasicType>> pose_graph_processing();

@@ -305,7 +305,10 @@ template <typename BasicType> struct KeyframeInfo {
 
     double *set_and_get_loopClosure_T_w_lidar_data_from_graph_pose() {
         std::unique_lock<std::shared_mutex> ul_w_lidar(T_w_lidar_lock);
-        loopClosure_T_w_lidar = graph_pose_w_lidar.get_T().matrix();
+        if (!is_loopClosure_T_w_lidar_set) {
+            loopClosure_T_w_lidar = graph_pose_w_lidar.get_T().matrix();
+            is_loopClosure_T_w_lidar_set = true;
+        }
         return loopClosure_T_w_lidar.data();
     }
 

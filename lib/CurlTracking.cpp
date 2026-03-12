@@ -314,6 +314,7 @@ template <typename BasicType> void CurlTracking<BasicType>::run() {
                     bool loop_detected = false;
                     bool scan_to_map = false;
                     std::shared_ptr<KeyframeInfo<BasicType>> history_keyframe_ptr;
+                    PoseGraph3dErrorTerm *stage1_icp_constrain_ptr = nullptr;
                     std::shared_ptr<TrajectoryLabel> merged_label_ptr;
                     std::shared_ptr<TrajectoryLabel> source_label_ptr = new_keyframe_ptr->trajectory_label_ptr;
                     {
@@ -325,6 +326,10 @@ template <typename BasicType> void CurlTracking<BasicType>::run() {
                         scan_to_map = curl_pose_graph_ptr->is_scan_to_map_loop_closure_last();
                         if (loop_detected) {
                             history_keyframe_ptr = curl_pose_graph_ptr->get_history_keyframe_ptr();
+                            if (!scan_to_map) {
+                                stage1_icp_constrain_ptr =
+                                    curl_pose_graph_ptr->get_latest_icp_loop_closure_cost_function();
+                            }
                         }
                         if (loop_detected && scan_to_map) {
                             auto history_keyframe_ptr_local = curl_pose_graph_ptr->pose_graph_processing_for_pair(
@@ -356,7 +361,8 @@ template <typename BasicType> void CurlTracking<BasicType>::run() {
                                 apply_pending_lc_if_any();
                             }
                             curl_pose_graph_ptr->set_skip_odometry_after_keyframe(new_keyframe_ptr);
-                            trigger_strict_lc_stage1_and_queue_ba(new_keyframe_ptr, history_keyframe_ptr);
+                            trigger_strict_lc_stage1_and_queue_ba(new_keyframe_ptr, history_keyframe_ptr,
+                                                                  stage1_icp_constrain_ptr);
                         }
                     } else {
                         std::lock_guard<std::mutex> pose_lock(pose_graph_lock);
@@ -471,7 +477,8 @@ template <typename BasicType> void CurlTracking<BasicType>::strict_lc_worker() {
             task.current_keyframe_ptr, task.history_keyframe_ptr, true,
             task.merged_label_ptr ? task.merged_label_ptr : task.history_keyframe_ptr->trajectory_label_ptr,
             task.premerge_history_neighbor_label_frame_nums_ptr, task.ref_frame, &deferred_pack,
-            task.loop_pose_snapshot_ptr, task.premerge_history_frame_nums_snapshot_ptr);
+            task.loop_pose_snapshot_ptr, task.premerge_history_frame_nums_snapshot_ptr,
+            task.stage1_icp_constrain_ptr);
         ba_running.store(false);
         // Reset BA usage flag for all keyframes used in this BA
         for (const auto &kf_weak : deferred_pack.ba_used_keyframes) {
@@ -525,7 +532,8 @@ template <typename BasicType> void CurlTracking<BasicType>::strict_lc_worker() {
 template <typename BasicType>
 void CurlTracking<BasicType>::trigger_strict_lc_stage1_and_queue_ba(
     const std::shared_ptr<KeyframeInfo<BasicType>> &current_keyframe_ptr,
-    const std::shared_ptr<KeyframeInfo<BasicType>> &history_keyframe_ptr) {
+    const std::shared_ptr<KeyframeInfo<BasicType>> &history_keyframe_ptr,
+    PoseGraph3dErrorTerm *stage1_icp_constrain_ptr) {
     if (!current_keyframe_ptr || !history_keyframe_ptr) {
         return;
     }
@@ -724,6 +732,7 @@ void CurlTracking<BasicType>::trigger_strict_lc_stage1_and_queue_ba(
     task.gen = lc_gen;
     task.current_keyframe_ptr = current_keyframe_ptr;
     task.history_keyframe_ptr = history_keyframe_ptr;
+    task.stage1_icp_constrain_ptr = stage1_icp_constrain_ptr;
     task.source_label_ptr = source_label_ptr;
     task.merged_label_ptr = merged_label_ptr;
     task.premerge_current_neighbor_label_frame_nums_ptr = premerge_current_neighbor_label_frame_nums_ptr;

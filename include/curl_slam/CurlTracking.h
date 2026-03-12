@@ -101,6 +101,7 @@ template <typename BasicType> class CurlTracking {
         uint64_t gen = 0;
         std::shared_ptr<KeyframeInfo<BasicType>> current_keyframe_ptr;
         std::shared_ptr<KeyframeInfo<BasicType>> history_keyframe_ptr;
+        PoseGraph3dErrorTerm *stage1_icp_constrain_ptr = nullptr;
         std::shared_ptr<TrajectoryLabel> source_label_ptr;
         std::shared_ptr<TrajectoryLabel> merged_label_ptr;
         std::shared_ptr<const std::unordered_set<unsigned int>> premerge_current_neighbor_label_frame_nums_ptr;
@@ -151,7 +152,8 @@ template <typename BasicType> class CurlTracking {
     void start_strict_lc_task(const StrictBATask &task);
     void strict_lc_worker();
     void trigger_strict_lc_stage1_and_queue_ba(const std::shared_ptr<KeyframeInfo<BasicType>> &current_keyframe_ptr,
-                                               const std::shared_ptr<KeyframeInfo<BasicType>> &history_keyframe_ptr);
+                                               const std::shared_ptr<KeyframeInfo<BasicType>> &history_keyframe_ptr,
+                                               PoseGraph3dErrorTerm *stage1_icp_constrain_ptr);
 
     int valid_history_frame_idx;
 
