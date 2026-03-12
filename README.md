@@ -44,7 +44,7 @@ Paper: https://ieeexplore.ieee.org/document/11078155/
 
 ## Quick Start (Docker)
 
-### 0) Clone
+### 1) Clone
 ```bash
 git clone https://github.com/SenseRoboticsLab/CURL-SLAM.git
 cd CURL-SLAM
@@ -77,7 +77,7 @@ sudo docker compose -f docker/docker-compose.cpu.yaml exec curl_slam /bin/bash
 If you run Docker without `sudo`, drop `sudo -E HOME=$HOME`. The `HOME=$HOME` part keeps the correct host
 `.Xauthority` when using `sudo`.
 
-Note: the Dockerfiles build from a fresh repository clone inside the image and check out the predefined branch in the
+Note: the Dockerfiles build from a fresh repository clone inside the image and check out the branch specified in the
 Dockerfile, rather than using the current local workspace contents directly.
 
 Optional data mount (edit `docker/.env` first):
@@ -166,8 +166,9 @@ rosbag play ./<bag_file>.bag
 ```
 
 ---
-## YAML parameters
-Primary configs live in:
+## Configuration
+
+Primary YAML configs live in:
 - `config/config.yaml`
 - `config/config_small.yaml`
 - `config/config_middle.yaml`
@@ -202,6 +203,13 @@ Primary configs live in:
 
 This project is licensed under GPL-3.0. See `LICENSE`. Third-party notices are listed in
 `THIRD_PARTY_NOTICES.md`.
+
+---
+
+## Acknowledgements
+
+This project builds on Patchwork++, PCL, Ceres Solver, Open3D, Sophus, CGAL, and other open-source components.
+See `THIRD_PARTY_NOTICES.md` for bundled third-party code and licenses.
 
 ---
 
