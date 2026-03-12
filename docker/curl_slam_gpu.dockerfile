@@ -3,7 +3,7 @@ RUN apt-get update && apt-get install -y locales lsb-release curl
 ARG DEBIAN_FRONTEND=noninteractive
 RUN dpkg-reconfigure locales
 
-ARG NUM_JOBS
+ARG NUM_JOBS=12
 # switch gcc and g++ version
 RUN apt-get update && \
     apt-get install -y --no-install-recommends apt-utils software-properties-common && \

@@ -6,7 +6,7 @@ services:
       context: ..
       dockerfile: docker/curl_slam_gpu.dockerfile
       args:
-        NUM_THREADS: 12
+        NUM_JOBS: 12
     environment:
       NVIDIA_DRIVER_CAPABILITIES: "graphics,compute,utility"
       DISPLAY: ${DISPLAY}

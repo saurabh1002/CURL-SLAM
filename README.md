@@ -77,6 +77,9 @@ sudo docker compose -f docker/docker-compose.cpu.yaml exec curl_slam /bin/bash
 If you run Docker without `sudo`, drop `sudo -E HOME=$HOME`. The `HOME=$HOME` part keeps the correct host
 `.Xauthority` when using `sudo`.
 
+Note: the Dockerfiles build from a fresh repository clone inside the image and check out the predefined branch in the
+Dockerfile, rather than using the current local workspace contents directly.
+
 Optional data mount (edit `docker/.env` first):
 
 ```env

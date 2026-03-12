@@ -6,7 +6,7 @@ services:
       context: ..
       dockerfile: docker/curl_slam_cpu.dockerfile
       args:
-        NUM_THREADS: 12
+        NUM_JOBS: 12
     environment:
       DISPLAY: ${DISPLAY}
       XAUTHORITY: /root/.Xauthority
