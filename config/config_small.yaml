@@ -108,7 +108,7 @@ LOOP_CLOSURE:
   is_enable: true
   search_radius: 1 # (m)
   remove_overlap_keyframe_patches_region: 5 # remove the patches of newly created keyframes in this region after loop closure (radius 5m)
-  remove_overlap_iou_thres: 0.1 # IoU threshold to remove overlapped patches after loop closure
+  remove_overlap_iou_thres: 0.9 # IoU threshold to remove overlapped patches after loop closure
   simple_loop_closure_search_radius: 1 # (m) for radius
   minimum_middle_segment_valid_dis: 5 # (m)
   association_rate_for_opt_history_keyframe: 0.6
