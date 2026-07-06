@@ -1,6 +1,5 @@
 <launch>
     <include file="$(find patchworkpp)/launch/demo_newer_college_128.launch"/>
     <node name="odometry_node_1" pkg="curl_slam" type="odometry_node" args="$(find curl_slam)/config/config.yaml"  output="screen"/>
-<!--     <node name="odometry_node_1" pkg="curl_slam" type="odometry_node" args="/home/zkc/project/ros/slam/src/CURL-SLAM/config/config.yaml"  output="screen"/> -->
     <node name="rivz_mapping" pkg="rviz" type="rviz" args="-d $(find curl_slam)/rviz/rviz_mapping.rviz"/>
 </launch>

@@ -168,10 +168,10 @@ RUN cd range-v3 && \
 
 WORKDIR /home/user/catkin_ws/src
 # In Dockerfile
-RUN git clone https://github.com/SenseRoboticsLab/CURL-SLAM.git
+RUN git clone https://github.com/saurabh1002/CURL-SLAM.git
 RUN cd CURL-SLAM && git checkout nonblock
 
-RUN git clone https://github.com/SenseRoboticsLab/patchwork-plusplus-ros-modified.git
+RUN git clone https://github.com/saurabh1002/patchwork-plusplus-ros-modified.git
 RUN cd patchwork-plusplus-ros-modified && git checkout docker_version
 
 

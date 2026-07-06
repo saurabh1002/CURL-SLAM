@@ -1,7 +1,7 @@
 DEBUG:
   results_dir: "/home/user/results"
-  data_set: "Newer_College" # KITTI Newer_College Fusion_Portable
-  seq: "math_e" # 05 Newer_College_Short_01 Newer_College_Long_02 Newer_College_Long_02_quad  quad_e math_e ug_e cloister stairs handheld_cateen_night
+  data_set: "MulRan" # KITTI Newer_College Fusion_Portable
+  seq: "KAIST01" # 05 Newer_College_Short_01 Newer_College_Long_02 Newer_College_Long_02_quad  quad_e math_e ug_e cloister stairs handheld_cateen_night
 
   is_save_final_results: true # T_w_lidar poses
   is_evaluate_time: true
