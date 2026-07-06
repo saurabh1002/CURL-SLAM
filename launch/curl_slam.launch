@@ -1,5 +1,6 @@
 <launch>
-    <include file="$(find patchworkpp)/launch/demo_newer_college_128.launch"/>
+    <arg name="cloud_topic" default="/kitti_cloud"/>
+    <include file="$(find patchworkpp)/launch/demo_newer_college_128.launch" args="cloud_topic:=$(arg cloud_topic)"/>
     <node name="odometry_node_1" pkg="curl_slam" type="odometry_node" args="$(find curl_slam)/config/config.yaml"  output="screen"/>
     <node name="rivz_mapping" pkg="rviz" type="rviz" args="-d $(find curl_slam)/rviz/rviz_mapping.rviz"/>
 </launch>
