@@ -253,44 +253,12 @@ template <typename BasicType> class SpatialHashing {
         return iter;
     }
 
-    // if patch is using, then the keyframe will be kept
-    void erase_old_patches(const std::shared_ptr<KeyframeInfo<BasicType>> &keyframe_ptr) {
-        std::shared_lock<std::shared_mutex> sl_keyframe_set(keyframe_set_lock);
-        auto keyframe_ptr_iter = all_keyframes_set.find(keyframe_ptr);
-        if (keyframe_ptr_iter == all_keyframes_set.end()) {
-            std::cerr << "erase keyframe target doesn't exist!" << std::endl;
-            return;
-        }
-
-        for (auto iter = keyframe_ptr->local_patches.begin(); iter != keyframe_ptr->local_patches.end();) {
-            if (auto patch_shared_ptr = get_patch_by_id(*iter)) {
-                std::vector<GridKey> grid_indices = get_grid_indices(patch_shared_ptr->get_enlarged_lower_bound_w(),
-                                                                     patch_shared_ptr->get_enlarged_upper_bound_w());
-                if (patch_shared_ptr.use_count() > (grid_indices.size() + 1)) {
-                    ++iter;
-                } else {
-                    this->erase(patch_shared_ptr);
-                    std::cout << "successfully delete a patch" << std::endl;
-                    iter = keyframe_ptr->local_patches.begin();
-                }
-            } else {
-                iter = keyframe_ptr->local_patches.erase(iter);
-            }
-        }
-    }
-
     void erase_patch_caches_of_old_keyframes(int curent_fame_idx, int largest_frame_idx_difference) {
         std::shared_lock<std::shared_mutex> sl_keyframe_set(keyframe_set_lock);
         for (auto keyframe_ptr_iter = all_keyframes_set.begin();
              (curent_fame_idx - (*keyframe_ptr_iter)->frame_idx) >= largest_frame_idx_difference; ++keyframe_ptr_iter) {
             (*keyframe_ptr_iter)->clear_patches_content([this](PatchId id) { return get_patch_by_id(id); });
         }
-
-        // for (auto keyframe_ptr_iter = all_keyframes_set.begin();
-        //      (curent_fame_idx - (*keyframe_ptr_iter)->frame_idx) >= largest_frame_idx_difference;) {
-        //     keyframe_ptr_iter = erase_keyframe(*keyframe_ptr_iter);
-        //     std::cout << (*keyframe_ptr_iter)->frame_idx << std::endl;
-        // }
     }
 
     void clear_patch_caches_out_sight(const Eigen::Matrix<double, 4, 4, Eigen::RowMajor> &T_w_j,
@@ -330,10 +298,6 @@ template <typename BasicType> class SpatialHashing {
     auto end() noexcept { return all_patches_map.end(); }
 
     auto end() const noexcept { return all_patches_map.end(); }
-
-    auto back() noexcept { return all_patches_map.back(); }
-
-    auto back() const noexcept { return all_patches_map.back(); }
 
     auto find(const GridKey &key) noexcept { return all_patches_map.find(key); }
 
