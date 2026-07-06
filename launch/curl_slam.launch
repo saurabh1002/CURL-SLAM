@@ -1,6 +1,12 @@
 <launch>
-    <arg name="cloud_topic" default="/kitti_cloud"/>
+    <arg name="dataset" default="" />
+    <arg name="cloud_topic" default="/points_raw"/>
     <include file="$(find patchworkpp)/launch/demo_newer_college_128.launch" args="cloud_topic:=$(arg cloud_topic)"/>
-    <node name="odometry_node_1" pkg="curl_slam" type="odometry_node" args="$(find curl_slam)/config/config.yaml"  output="screen"/>
-    <node name="rivz_mapping" pkg="rviz" type="rviz" args="-d $(find curl_slam)/rviz/rviz_mapping.rviz"/>
+    <node name="odometry_node_1" pkg="curl_slam" type="odometry_node" args="$(find curl_slam)/config/config_challenge.yaml $(arg dataset)"  output="screen"/>
+    <arg name="rviz" default="true" />
+    <group if="$(arg rviz)">
+        <node name="rviz_mapping" pkg="rviz" type="rviz" args="-d $(find curl_slam)/rviz/rviz_mapping.rviz"/>
+    </group>
+    <!-- rosbag play -->
+    <node pkg="rosbag" type="play" name="rosbag_play" args="--clock /home/user/data/$(arg dataset).bag" output="screen" required="true" />
 </launch>
