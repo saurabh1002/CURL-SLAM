@@ -118,7 +118,6 @@ class FileReaderBase {
             }
             return vec;
         } else {
-            std::cout << "Not a vector" << std::endl;
             return vec;
         }
     }

@@ -4,7 +4,6 @@ DEBUG:
   seq: "parkland" # 05 Newer_College_Short_01 Newer_College_Long_02 Newer_College_Long_02_quad  quad_e math_e ug_e cloister stairs handheld_cateen_night
 
   is_save_final_results: true # T_w_lidar poses
-  is_evaluate_time: true
   is_save_final_map: true
   PUB:
     is_pub_dense_reconstruction: false
@@ -25,11 +24,11 @@ DIRECT_METHOD:
 
 SphVoxelUpdate:
   # multi-thread num
-  patch_initialization_thread_num: 16
-  data_association_thread_num: 16
-  overlap_plan_thread_num: 4
-  BA_thread_num: 8
-  PGO_thread_num: 4
+  patch_initialization_thread_num: 8
+  data_association_thread_num: 8
+  overlap_plan_thread_num: 2
+  BA_thread_num: 4
+  PGO_thread_num: 2
   BA_recons_downsample_stride: 1 # regularization points downsample stride (2 => width/2 & height/2)
   minimum_dis: 1.5 # -1 means disable
   maximum_dis: -1 # -1 means disable

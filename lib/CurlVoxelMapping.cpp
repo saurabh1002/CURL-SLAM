@@ -205,8 +205,6 @@ bool CurlVoxelMapping<BasicType>::get_local_coordinate_with_eig(
 template <typename BasicType>
 void CurlVoxelMapping<BasicType>::rt_callback_point_cloud_segments_seg_only(
     const sensor_msgs::PointCloud2::ConstPtr &segment_msg) {
-    Timer preprocessing_timer;
-    preprocessing_timer.start();
     pcl::PointCloud<PointT>::Ptr seg_cloud(new pcl::PointCloud<PointT>());
     pcl::PointCloud<PointT>::Ptr ground_cloud(new pcl::PointCloud<PointT>());
     pcl::fromROSMsg(*segment_msg, *seg_cloud);
@@ -250,8 +248,6 @@ void CurlVoxelMapping<BasicType>::rt_callback_point_cloud_segments_seg_only(
 template <typename BasicType>
 void CurlVoxelMapping<BasicType>::rt_callback_point_cloud_segments(
     const sensor_msgs::PointCloud2::ConstPtr &segment_msg, const sensor_msgs::PointCloud2::ConstPtr &ground_msg) {
-    Timer preprocessing_timer;
-    preprocessing_timer.start();
     pcl::PointCloud<PointT>::Ptr seg_cloud(new pcl::PointCloud<PointT>());
     pcl::PointCloud<PointT>::Ptr ground_cloud(new pcl::PointCloud<PointT>());
     pcl::fromROSMsg(*segment_msg, *seg_cloud);
@@ -297,8 +293,6 @@ void CurlVoxelMapping<BasicType>::rt_callback_point_cloud_segments(
         ++robust_initialization_counter;
     }
     preprocessing_queue_lock.lock();
-    // *seg_cloud = *seg_cloud + *ground_cloud;
-    // ground_cloud->clear();
     pcl_ptr_pair_queue.emplace(std::make_tuple(segment_msg->header.stamp.toSec(), seg_cloud, ground_cloud));
     preprocessing_queue_lock.unlock();
 }
@@ -524,20 +518,9 @@ bool CurlVoxelMapping<BasicType>::rt_fix_voxel_initialization(
             }
             patch_info_ptr->set_enlarged_lower_bound_w(lower_bound_w);
             patch_info_ptr->set_enlarged_upper_bound_w(upper_bound_w);
-            // add original points into this patch_info_ptr (first time)
-            // Eigen::MatrixX4d T_keyframeLidar_w =
-            //     Eigen::Isometry3d(keyframe_info_ptr->get_T_w_lidar()).inverse().matrix();
-            // Eigen::MatrixX<BasicType> seg_patch_keyframe_lidar =
-            //     (T_keyframeLidar_w(Eigen::seq(0, 2), Eigen::seq(0, 2)).cast<BasicType>() * seg_patch_world.second)
-            //         .colwise() +
-            //     T_keyframeLidar_w(Eigen::seq(0, 2), 3).cast<BasicType>();
-            //     patch_info_ptr->original_points_lidar_vec_emplace_back(seg_patch_keyframe_lidar);
-            // }
 #pragma omp critical
             {
                 spatial_hashing_ptr->insert_patch(patch_info_ptr);
-                // for visualization
-                // patches_w_vec.push_back(seg_patch_world.second);
                 patch_info_ptr_vec.push_back(patch_info_ptr);
             }
         }
@@ -611,15 +594,6 @@ bool CurlVoxelMapping<BasicType>::rt_fix_voxel_initialization(
             }
             patch_info_ptr->set_enlarged_lower_bound_w(lower_bound_w);
             patch_info_ptr->set_enlarged_upper_bound_w(upper_bound_w);
-            // add original points into this patch_info_ptr (first time)
-            // Eigen::MatrixX4d T_keyframeLidar_w =
-            //     Eigen::Isometry3d(keyframe_info_ptr->get_T_w_lidar()).inverse().matrix();
-            // Eigen::MatrixX<BasicType> ground_patch_keyframe_lidar =
-            //     (T_keyframeLidar_w(Eigen::seq(0, 2), Eigen::seq(0, 2)).cast<BasicType>() * ground_patch_world.second)
-            //         .colwise() +
-            //     T_keyframeLidar_w(Eigen::seq(0, 2), 3).cast<BasicType>();
-            //     patch_info_ptr->original_points_lidar_vec_emplace_back(ground_patch_keyframe_lidar);
-            // }
             omp_set_lock(&writelock);
 
             spatial_hashing_ptr->insert_patch(patch_info_ptr);
@@ -751,7 +725,6 @@ CurlVoxelMapping<BasicType>::preprocessing(const double time, const pcl::PointCl
                                            std::vector<std::vector<Eigen::MatrixX<BasicType>>> &_point_cloud_vec,
                                            PointCloudInfo<BasicType> &_point_cloud_info) {
     _point_cloud_info.time = time;
-    // _point_cloud_info.time = ros::Time::now().toSec();
     _point_cloud_info.seg_cloud_ptr = seg_cloud_ptr;
     _point_cloud_info.ground_cloud_ptr = ground_cloud_ptr;
     // divide the point cloud into several patches
@@ -811,7 +784,6 @@ CurlVoxelMapping<BasicType>::preprocessing(const double time, const pcl::PointCl
                                            std::vector<std::vector<Eigen::MatrixX<BasicType>>> &_point_cloud_vec,
                                            PointCloudInfo<BasicType> &_point_cloud_info) {
     _point_cloud_info.time = time;
-    // _point_cloud_info.time = ros::Time::now().toSec();
     _point_cloud_info.seg_cloud_ptr = seg_cloud_ptr;
     _point_cloud_info.ground_cloud_ptr = ground_cloud_ptr;
     if (curl_voxel_mapping_config_ptr->is_deskew) {
@@ -881,23 +853,13 @@ bool CurlVoxelMapping<BasicType>::curl_registration_method(
     std::pair<std::vector<double>, std::vector<double>> &bounds_w,
     std::unordered_set<std::array<int, 2>, Voxel2DHashFuncPrimeArray> &new_box_map, int &_number_patches,
     bool &_is_add_keyframe, bool &_is_add_trajectory_segment, std::vector<BasicType> &_our_costs,
-    std::vector<double> &_preprocessing_time_vec, std::vector<double> &_data_association_time_vec,
-    std::vector<double> &_opt_time_vec,
     std::vector<std::pair<std::vector<double>, std::vector<double>>> &query_bounding_box_vec,
     std::vector<std::pair<std::vector<double>, std::vector<double>>> &map_bounding_box_vec) {
-    if (debug_config_ptr->is_evaluate_time) {
-        _preprocessing_timer.start();
-    }
     bounds_w = preprocessing(cloud_time, seg_cloud_ptr, ground_cloud_ptr, _T_j_1_j, _T_w_j.cast<float>(),
                              _point_cloud_vec, _point_cloud_info);
     //            _point_cloud_info.T_obj_lidar_vec.resize(_point_cloud_vec.size());
     _point_cloud_info.intersected_score_pairs_vec.resize(_point_cloud_vec.size());
     _point_cloud_info.bounding_box_pair_vec.resize(_point_cloud_vec.size());
-
-    if (debug_config_ptr->is_evaluate_time) {
-        _preprocessing_time_vec.push_back(_preprocessing_timer.elapsedMilliseconds());
-        std::cout << "Preprocessing time: " << _preprocessing_time_vec.back() << " ms" << std::endl;
-    }
 
     ceres::Problem problem;
 
@@ -905,10 +867,6 @@ bool CurlVoxelMapping<BasicType>::curl_registration_method(
     ceres::LossFunctionWrapper *loss_function = new ceres::LossFunctionWrapper(
         new ceres::HuberLoss(curl_tracking_config_ptr->seg_kernel_threshold), ceres::DO_NOT_TAKE_OWNERSHIP);
 
-    // this part of the code doing data-association only
-    if (debug_config_ptr->is_evaluate_time) {
-        _data_asso_timer.start();
-    }
     // new data-association starts here
     //            std::vector<std::vector<double>> entire_scores(_point_cloud_vec.size());
     int intersect_counter = 0;
@@ -967,7 +925,6 @@ bool CurlVoxelMapping<BasicType>::curl_registration_method(
             }
         }
     }
-    std::cout << "intersect_counter: " << intersect_counter << std::endl;
     // for new landmark addition
     // 1. add middle_map_new_box_map to detect which patch need to be added into the middle map
     for (int i = 0; i < _point_cloud_vec.size(); ++i) {
@@ -1031,14 +988,12 @@ bool CurlVoxelMapping<BasicType>::curl_registration_method(
             }
         }
     }
-    std::cout << "initial_counter: " << initial_counter << std::endl;
     // update this to avoid too many patches
     std::vector<std::vector<std::tuple<std::array<int, 2>, double, std::shared_ptr<PatchInfo<BasicType>>>>> ground_sets(
         _point_cloud_vec.size());
     std::vector<std::vector<std::tuple<std::array<int, 2>, double, std::shared_ptr<PatchInfo<BasicType>>>>> seg_sets(
         _point_cloud_vec.size());
     // update data-association
-    // FIXME: check the correctness of the entire_scores
     int best_counter = 0;
     //            std::vector<double> entire_scores_ground;
     //            std::vector<double> entire_scores_seg;
@@ -1096,7 +1051,6 @@ bool CurlVoxelMapping<BasicType>::curl_registration_method(
                       return std::get<1>(a) > std::get<1>(b);
                   });
     }
-    std::cout << "best_counter: " << best_counter << std::endl;
     //            double ground_thres = 0;
     //            if (!entire_scores_ground.empty()) {
     //                ground_thres = curl::IQR_thres_with_bdy<double>(entire_scores_ground,
@@ -1194,15 +1148,6 @@ bool CurlVoxelMapping<BasicType>::curl_registration_method(
         }
     }
     _number_patches += (true_ground_num + true_seg_num);
-    std::cout << "true ground: " << true_ground_num << " true seg: " << true_seg_num << std::endl;
-    std::cout << "trajectory_label_frame_num_counter:***********************" << trajectory_label_frame_num_counter
-              << std::endl;
-    std::cout << "curr_trajectory_label_ptr: " << _curr_trajectory_label_ptr->label_frame_num
-              << " _current_label_frame_num: " << _current_label_frame_num << " neighbours: ";
-    for (const auto &neighbour : _curr_trajectory_label_ptr->neighbor_label_frame_num) {
-        std::cout << neighbour << " ";
-    }
-    std::cout << std::endl;
 
     if (true_ground_num + true_seg_num < 5) {
         return false;
@@ -1269,13 +1214,6 @@ bool CurlVoxelMapping<BasicType>::curl_registration_method(
         // succeed_idx.push_back(i);
     }
 
-    if (debug_config_ptr->is_evaluate_time) {
-        _data_association_time_vec.push_back(_data_asso_timer.elapsedMilliseconds());
-        std::cout << "Data association time: " << _data_association_time_vec.back() << " ms" << std::endl;
-    }
-    if (debug_config_ptr->is_evaluate_time) {
-        _opt_timer.start();
-    }
     ceres::Solver::Options options;
     options.max_num_iterations = curl_tracking_config_ptr->max_num_iterations;
     // options.linear_solver_type = ceres::SPARSE_NORMAL_CHOLESKY;
@@ -1320,10 +1258,6 @@ bool CurlVoxelMapping<BasicType>::curl_registration_method(
         _is_add_keyframe = true;
     }
     _our_costs.push_back(summary.final_cost);
-    if (debug_config_ptr->is_evaluate_time) {
-        _opt_time_vec.push_back(_opt_timer.elapsedMilliseconds());
-        std::cout << "Optimization time: " << _opt_time_vec.back() << " ms" << std::endl;
-    }
     return true;
 }
 
@@ -1335,9 +1269,6 @@ bool CurlVoxelMapping<BasicType>::curl_registration_method_minimum(
     if (associated_patches.empty()) {
         return false;
     }
-    if (debug_config_ptr->is_evaluate_time) {
-        _preprocessing_timer_minimum.start();
-    }
     std::vector<std::vector<Eigen::MatrixX<BasicType>>> _point_cloud_vec;
     PointCloudInfo<BasicType> _point_cloud_info;
     std::vector<std::tuple<Eigen::MatrixX<BasicType>, std::shared_ptr<PatchInfo<BasicType>>, double>>
@@ -1348,20 +1279,12 @@ bool CurlVoxelMapping<BasicType>::curl_registration_method_minimum(
     _point_cloud_info.intersected_score_pairs_vec.resize(_point_cloud_vec.size());
     _point_cloud_info.bounding_box_pair_vec.resize(_point_cloud_vec.size());
 
-    if (debug_config_ptr->is_evaluate_time) {
-        std::cout << "Preprocessing time: " << _preprocessing_timer_minimum.elapsedMilliseconds() << " ms" << std::endl;
-    }
-
     ceres::Problem problem;
 
     ceres::Manifold *SE3_manifold = SE3Manifold::Create();
     ceres::LossFunctionWrapper *loss_function = new ceres::LossFunctionWrapper(
         new ceres::HuberLoss(curl_tracking_config_ptr->seg_kernel_threshold), ceres::DO_NOT_TAKE_OWNERSHIP);
 
-    // this part of the code doing data-association only
-    if (debug_config_ptr->is_evaluate_time) {
-        _data_asso_timer_minimum.start();
-    }
     // new data-association starts here
     //            std::vector<std::vector<double>> entire_scores(_point_cloud_vec.size());
     int intersect_counter = 0;
@@ -1411,18 +1334,11 @@ bool CurlVoxelMapping<BasicType>::curl_registration_method_minimum(
             }
         }
     }
-    std::cout << "intersect_counter: " << intersect_counter << std::endl;
-    // for new landmark addition
 
     std::vector<std::vector<ScanDataAsso<BasicType>>> initial_scan_data_asso_vec(_point_cloud_vec.size());
     // for visualization
     std::vector<std::vector<std::pair<std::vector<double>, std::vector<double>>>> initial_query_bounding_box_vec(
         _point_cloud_vec.size());
-    //            std::unordered_map<std::vector<int>, std::pair<std::vector<double>, std::vector<double>>,
-    //                               Voxel2DHashFuncPrime>
-    //                initial_query_bounding_box_vec;
-    // detect whether has ground or seg pairs
-    // reject invalid overlap pairs
     // 2. modify the following for loop to make sure middle map can work well
     int initial_counter = 0;
     for (int i = 0; i < _point_cloud_vec.size(); ++i) {
@@ -1434,10 +1350,6 @@ bool CurlVoxelMapping<BasicType>::curl_registration_method_minimum(
                 // add information to ScanDataAsso
                 initial_scan_data_asso_vec[i][j].point_idx = {i, j};
                 for (auto &pair : _point_cloud_info.intersected_score_pairs_vec[i][j]) {
-                    // for new landmark addition
-                    // NOTE: All intersected patches are going to be used for update
-                    // NOTE: Parts of intersected patches used for pose esitmation
-                    // NOTE: This has to use enlarged bounding box
                     // for visualization
                     initial_query_bounding_box_vec[i][j] = _point_cloud_info.bounding_box_pair_vec[i][j];
                     // add information to ScanDataAsso
@@ -1451,7 +1363,6 @@ bool CurlVoxelMapping<BasicType>::curl_registration_method_minimum(
             }
         }
     }
-    std::cout << "initial_counter: " << initial_counter << std::endl;
     // update this to avoid too many patches
     std::vector<std::vector<std::tuple<std::array<int, 2>, double, std::shared_ptr<PatchInfo<BasicType>>>>> ground_sets(
         _point_cloud_vec.size());
@@ -1519,7 +1430,6 @@ bool CurlVoxelMapping<BasicType>::curl_registration_method_minimum(
                       return std::get<1>(a) > std::get<1>(b);
                   });
     }
-    std::cout << "best_counter: " << best_counter << std::endl;
     int true_ground_num = 0;
     int true_seg_num = 0;
     for (const auto &region : ground_sets) {
@@ -1527,8 +1437,6 @@ bool CurlVoxelMapping<BasicType>::curl_registration_method_minimum(
         for (const auto &ground_set : region) {
             if (region_counter < curl_tracking_config_ptr->max_region_ground_pairs ||
                 curl_tracking_config_ptr->max_region_ground_pairs == -1) {
-                //                        if (std::get<1>(ground_set) > ground_thres) {
-                // succeed_tuple_vec.push_back(ground_set);
                 pose_succeed_associations.emplace_back(
                     _point_cloud_vec[std::get<0>(ground_set)[0]][std::get<0>(ground_set)[1]], std::get<2>(ground_set),
                     std::get<1>(ground_set));
@@ -1545,13 +1453,9 @@ bool CurlVoxelMapping<BasicType>::curl_registration_method_minimum(
         for (const auto seg_set : region) {
             if (region_counter < curl_tracking_config_ptr->max_region_seg_pairs ||
                 curl_tracking_config_ptr->max_region_seg_pairs == -1) {
-                //                        if (std::get<1>(seg_set) > seg_thres) {
-                //                        succeed_tuple_vec.push_back(seg_set);
                 pose_succeed_associations.emplace_back(
                     _point_cloud_vec[std::get<0>(seg_set)[0]][std::get<0>(seg_set)[1]], std::get<2>(seg_set),
                     std::get<1>(seg_set));
-                // aabb::AABB bounding_box =
-                //     spatial_hashing_ptr->get_AABB(std::get<2>(seg_set)->key);
                 aabb::AABB bounding_box = aabb::AABB(std::get<2>(seg_set)->get_enlarged_lower_bound_w(),
                                                      std::get<2>(seg_set)->get_enlarged_upper_bound_w());
                 ++true_seg_num;
@@ -1560,10 +1464,7 @@ bool CurlVoxelMapping<BasicType>::curl_registration_method_minimum(
             }
         }
     }
-    std::cout << "true ground: " << true_ground_num << " true seg: " << true_seg_num << std::endl;
-
     if (true_ground_num + true_seg_num < 5) {
-        std::cout << "Too less patches" << std::endl;
         return false;
     }
 
@@ -1618,13 +1519,6 @@ bool CurlVoxelMapping<BasicType>::curl_registration_method_minimum(
         // update data-association information for update sph coeff and visualization
         // succeed_idx.push_back(i);
     }
-
-    if (debug_config_ptr->is_evaluate_time) {
-        std::cout << "Data association time: " << _data_asso_timer_minimum.elapsedMilliseconds() << " ms" << std::endl;
-    }
-    if (debug_config_ptr->is_evaluate_time) {
-        _opt_timer_minimum.start();
-    }
     ceres::Solver::Options options;
     options.max_num_iterations = curl_tracking_config_ptr->max_num_iterations;
     // options.linear_solver_type = ceres::SPARSE_NORMAL_CHOLESKY;
@@ -1635,9 +1529,6 @@ bool CurlVoxelMapping<BasicType>::curl_registration_method_minimum(
     options.use_nonmonotonic_steps = false;
     options.num_threads = curl_tracking_config_ptr->opt_thread_num;
 
-    // if (curl_tracking_config_ptr->is_stop_after_cost_increased) {
-    //     options.callbacks.push_back(&stop_callback);
-    // }
     ceres::Solver::Summary summary;
     if (SH_table_config_ptr->is_SH_analytic_jacobian) {
         problem.SetManifold(_T_w_j.data(), SE3_manifold);
@@ -1655,23 +1546,7 @@ bool CurlVoxelMapping<BasicType>::curl_registration_method_minimum(
     // normalize T_w_j
     Eigen::Matrix3d R_tmp = _T_w_j(Eigen::seq(0, 2), Eigen::seq(0, 2));
     _T_w_j(Eigen::seq(0, 2), Eigen::seq(0, 2)) = Eigen::Quaterniond(R_tmp).normalized().toRotationMatrix();
-    if (debug_config_ptr->is_evaluate_time) {
-        std::cout << "Optimization time: " << _opt_timer_minimum.elapsedMilliseconds() << " ms" << std::endl;
-    }
     return true;
 }
 
 template class CurlVoxelMapping<BT>; // this is very important
-
-// namespace boost {
-// namespace serialization {
-
-// template <class Archive> void serialize(Archive &ar, CurlVoxelMapping<BT> &t, const unsigned int version) {
-//     t.serialize(ar, version);
-// }
-
-// } // namespace serialization
-// } // namespace boost
-
-// Export the instantiated template class
-// BOOST_CLASS_EXPORT(CurlVoxelMapping<BT>)

@@ -90,7 +90,6 @@ typename Delaunay_triangulation_linear::Face_handle locate_point_in_mesh(
         face_handle = nullptr;
         break;
     default:
-        std::cout << "Unknown location type." << std::endl;
         face_handle = nullptr;
         break;
     }

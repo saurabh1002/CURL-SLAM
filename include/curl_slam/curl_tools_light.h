@@ -5,7 +5,6 @@
 #ifndef CURL_SLAM_CURL_TOOLS_LIGHT_H
 #define CURL_SLAM_CURL_TOOLS_LIGHT_H
 #include "curl_slam/FileReaderBase.h"
-#include "curl_slam/Timer.h"
 #include "curl_slam/load_config.h"
 #include <Eigen/Core>
 #include <Eigen/Dense>
@@ -889,11 +888,6 @@ void get_sph_gradient_table(const Eigen::MatrixX<T> &dirs, SH_TABLE_CONFIG<T> &S
         // update the index
         idx_Y = idx_Y + 2 * l + 1;
     }
-    // FileReaderBase::write_txt_file("/home/zkc/project/ros/slam/src/CURL-SLAM/tmp_data/G_theta.txt",
-    //                                Eigen::MatrixXd(SH_table_config.SH_G_theta_table.template cast<double>()));
-    // FileReaderBase::write_txt_file("/home/zkc/project/ros/slam/src/CURL-SLAM/tmp_data/G_phi.txt",
-    //                                Eigen::MatrixXd(SH_table_config.SH_G_phi_table.template cast<double>()));
-    // std::cout << "here" << std::endl;
 }
 
 template <typename T = double>
@@ -1416,7 +1410,6 @@ template <typename T = double> void getSH_table(SH_TABLE_CONFIG<T> &SH_table_con
     }
     SH_table_config.SH_table = getSH<T>(SH_table_config.max_SH_degree, dirs);
     get_sph_gradient_table<T>(dirs, SH_table_config);
-    std::cout << "Finish initialization" << std::endl;
 }
 
 // TODO: initialize a grid for spherical harmonic coefficients extraction and update rather than for the whole table
@@ -1459,8 +1452,6 @@ template <typename T = double> void getSH_table(SH_TABLE_CONFIG<T> &SH_table_con
         SH_table_config.I_table_square_ldlt_vec[i].compute(SH_table_config.I_table_square_vec[i]);
     }
     get_sph_gradient_table<T>(dirs, SH_table_config);
-
-    std::cout << "Finish initialization" << std::endl;
 }
 
 template <typename T = double>
@@ -1508,8 +1499,6 @@ void getSH_table(SH_TABLE_CONFIG<T> &SH_table_config, int x_size, int y_size, do
         SH_table_config.I_table_square_ldlt_vec[i].compute(SH_table_config.I_table_square_vec[i]);
     }
     get_sph_gradient_table<T>(dirs, SH_table_config);
-
-    std::cout << "Finish initialization" << std::endl;
 }
 
 template <typename T = double> void get_update_idx(SH_TABLE_CONFIG<T> &SH_table_config) {
@@ -2132,7 +2121,6 @@ Eigen::MatrixX<T> Sobel_eigen_central_gradient(const Eigen::MatrixX<T> &img, con
                         delta_img(y, x) = 0;
                         break;
                     default:
-                        std::cout << "Unknown status" << std::endl;
                         break;
                     }
                 }
@@ -2700,10 +2688,6 @@ bool is_update_local_coordinate_with_eig_new(const Eigen::Isometry3d &T_w_lidar,
     R_rot.col(2) = eigen_vectors.col(0);
 
     Eigen::Vector3d history_z_axis = (T_w_lidar * T_obj_lidar.inverse()).matrix()(Eigen::seq(0, 2), 2);
-    // std::cout << "++++++++++++++++++++++++++++++" << std::endl;
-    // std::cout << "Norm: " << R_rot.col(2).norm() << " " << history_z_axis.norm() << std::endl;
-    // std::cout << "value: " << R_rot.col(2).transpose() * history_z_axis << std::endl;
-    // std::cout << "++++++++++++++++++++++++++++++" << std::endl;
 
     if (std::abs(R_rot.col(2).transpose() * history_z_axis) > 0.70710678118) {
         return false;

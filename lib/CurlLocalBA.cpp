@@ -98,20 +98,13 @@ void CurlLocalBA<BasicType>::load_residuals_point_clouds(
         } else {
             associated_keyframes[keyframe_ptr].emplace_back(history_keyframe_ptr, 1);
         }
-        // get associated current keyframes and history keyframes (for adding loop closure contrains to pose graph)
-
-        // update this patch's checkUpdate_last_update_keyframe_num so this patch can be further updated
 
         if (!pose_succeed_associations.empty()) {
             {
                 std::lock_guard<std::mutex> patch_lock(patch_info_ptr->patch_update_lock);
-                patch_info_ptr->checkUpdate_last_update_keyframe_num = keyframe_ptr->frame_num;
             }
             problem.SetManifold(history_loop_pose, _SE3_manifold);
             problem.SetManifold(current_loop_pose, _SE3_manifold);
-            //            problem.SetParameterBlockConstant(
-            //                std::get<1>(succeed_asso)->keyframe_ptr->set_and_get_loopClosure_T_w_lidar_data());
-            //            problem.SetParameterBlockConstant(std::get<1>(succeed_asso)->patch_procession_ptr->get_sph_coeff_data());
             // Set group spherical harmonoics coefficients
             _ordering->AddElementToGroup(ba_sph_coeff, 0);
             // Set group for pose estimation

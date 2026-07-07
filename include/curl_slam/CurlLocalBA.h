@@ -8,7 +8,6 @@
 #include "curl_slam/CurlVoxelMapping.h"
 // #include "DirectMethod.h"
 #include "curl_slam/FileReaderBase.h"
-#include "curl_slam/Timer.h"
 #include "curl_slam/optimization_types.h"
 #include "curl_slam/spatial_hashing.h"
 #include "curl_slam/types.h"

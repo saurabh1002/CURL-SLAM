@@ -5,7 +5,6 @@
 #ifndef SRC_PatchProcessing_H
 #define SRC_PatchProcessing_H
 // #include <opencv2/opencv.hpp>
-#include "curl_slam/Timer.h"
 #include "curl_slam/curl_tools_light.h"
 // #include "curl_slam/eigen_serialization.h"
 #include "curl_slam/linear_interpolation_2.h"

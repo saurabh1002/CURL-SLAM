@@ -10,7 +10,6 @@
 #include "curl_slam/CurlVoxelMapping.h"
 #include "curl_slam/FileReaderBase.h"
 #include "curl_slam/ThreadSafeQueue.h"
-#include "curl_slam/Timer.h"
 #include "curl_slam/curl_tools_light.h"
 #include "curl_slam/light_structure.h"
 #include "curl_slam/lock_manager.h"
@@ -128,9 +127,6 @@ template <typename BasicType> class CurlTracking {
     std::atomic<uint64_t> post_strict_debug_gen{0};
     std::atomic<int> post_strict_debug_frames_left{0};
     // time evaluation
-    Timer preprocessing_timer, data_asso_timer, opt_timer, keyframe_timer, update_sph_coeff_timer, total_timer;
-    std::vector<double> preprocessing_time_vec, data_association_time_vec, opt_time_vec,
-        landmark_initialization_time_vec, update_sph_time_vec, total_time_vec;
     int number_patches;
     int largest_pyramid_depth;
     // for BA

@@ -48,7 +48,6 @@ template <typename T> struct PointCloud {
     // Returns the dim'th component of the idx'th point in the class:
     // Since this is inlined and the "dim" argument is typically an immediate
     // value, the
-    //  "if/else's" are actually solved at compile time.
     inline T kdtree_get_pt(const size_t idx, const size_t dim) const { return pts[idx](dim); }
 
     // Optional bounding-box computation: return false to default to a standard
@@ -213,7 +212,6 @@ template <typename BasicType> struct KeyframeInfo {
     KeyframeInfo(double _time) : time(_time) {
         is_BA_T_w_lidar_set = false;
         is_IoU_sorted = false;
-        is_IoU_history_sorted = false;
         is_update_by_pose_graph = false;
         is_backend_keyframe = false;
         lower_bound.resize(3, std::numeric_limits<double>::max());
@@ -227,7 +225,6 @@ template <typename BasicType> struct KeyframeInfo {
         graph_obs_j_1_j.set_pose(T_j_1_j.matrix());
         is_BA_T_w_lidar_set = false;
         is_IoU_sorted = false;
-        is_IoU_history_sorted = false;
         is_update_by_pose_graph = false;
         is_backend_keyframe = false;
         lower_bound.resize(3, std::numeric_limits<double>::max());
@@ -362,13 +359,11 @@ template <typename BasicType> struct KeyframeInfo {
             &asso_vec) {
         succeed_associations.insert(succeed_associations.end(), asso_vec.begin(), asso_vec.end());
         is_IoU_sorted = false;
-        is_IoU_history_sorted = false;
     }
     void succeed_associations_push_back(
         const std::tuple<Eigen::MatrixX<BasicType>, std::shared_ptr<PatchInfo<BasicType>>, double> &ele) {
         succeed_associations.push_back(ele);
         is_IoU_sorted = false;
-        is_IoU_history_sorted = false;
     }
     // return reference avoid copy
     const std::vector<std::tuple<Eigen::MatrixX<BasicType>, std::shared_ptr<PatchInfo<BasicType>>, double>> &
@@ -487,7 +482,6 @@ template <typename BasicType> struct KeyframeInfo {
         merge_get_IoU(region_width_elements, ground_succeed_associations_vec_tmp, ground_succeed_associations,
                       outlier_rejection_leaf_size, outlier_rejection_minimum_neighbours);
         is_IoU_sorted = false;
-        is_IoU_history_sorted = false;
     }
 
     void sort_succeed_associations_IoU_history(
@@ -495,15 +489,12 @@ template <typename BasicType> struct KeyframeInfo {
         const int max_patches_region_seg, const int max_patches_region_ground, const double history_weight_factor,
         std::unordered_set<std::shared_ptr<PatchInfo<BasicType>>> &history_patch_ptr_seg,
         std::unordered_set<std::shared_ptr<PatchInfo<BasicType>>> &history_patch_ptr_ground) {
-        // if (!is_IoU_history_sorted) {
         sort_succ_associations_IoU_history(keyframePtr, valid_keyframe_idx, max_patches_region_seg,
                                            history_weight_factor, history_patch_ptr_seg, seg_succeed_associations);
         sort_succ_associations_IoU_history(keyframePtr, valid_keyframe_idx, max_patches_region_ground,
                                            history_weight_factor, history_patch_ptr_ground,
                                            ground_succeed_associations);
-        // }
         is_IoU_sorted = false;
-        is_IoU_history_sorted = true;
     }
 
     void sort_succeed_associations_IoU() {
@@ -512,7 +503,6 @@ template <typename BasicType> struct KeyframeInfo {
             sort_succ_associations_IoU(ground_succeed_associations);
         }
         is_IoU_sorted = true;
-        is_IoU_history_sorted = false;
     }
 
     void update_patches(const double voxel_size, const double outlier_rejection_leaf_size,
@@ -795,7 +785,7 @@ template <typename BasicType> struct KeyframeInfo {
         seg_succeed_associations; // point cloud, corresponding patch, weight
     std::vector<std::vector<std::tuple<Eigen::MatrixX<BasicType>, std::shared_ptr<PatchInfo<BasicType>>, SCORE>>>
         ground_succeed_associations; // point cloud, corresponding patch, weight
-    bool is_IoU_sorted, is_IoU_history_sorted;
+    bool is_IoU_sorted;
 };
 template <typename BasicType> std::shared_mutex KeyframeInfo<BasicType>::BA_T_w_lidar_lock;
 template <typename BasicType> std::shared_mutex KeyframeInfo<BasicType>::T_w_lidar_lock;
@@ -837,7 +827,6 @@ template <typename BasicType> struct PatchInfo {
         create_keyframe_num = keyframe_ptr->frame_num;
         last_update_keyframe_num = keyframe_ptr->frame_num;
         last_update_keyframe_idx = keyframe_ptr->frame_idx;
-        checkUpdate_last_update_keyframe_num = keyframe_ptr->frame_num;
         BA_pts_lower_bound_w.resize(3);
         BA_pts_upper_bound_w.resize(3);
         Eigen::Map<Eigen::Vector3d>(BA_pts_lower_bound_w.data()) = Eigen::Vector3d::Zero();
@@ -1006,7 +995,6 @@ template <typename BasicType> struct PatchInfo {
     int create_keyframe_num;
     int last_update_keyframe_num;
     int last_update_keyframe_idx;
-    int checkUpdate_last_update_keyframe_num;
     Eigen::Isometry3d T_obj_lidar;
     Eigen::Isometry3d map_gen_T_w_obj;
     PatchId key;

@@ -67,9 +67,6 @@ template <typename BasicType> void CurlTracking<BasicType>::run() {
                 point_cloud_vec; // First region_width_elements*region_width_elements is non-ground points and the last
                                  // region_width_elements*region_width_elements is ground points
             PointCloudInfo<BasicType> point_cloud_info;
-            if (debug_config_ptr->is_evaluate_time) {
-                preprocessing_timer.start();
-            }
             pcl::PointCloud<PointT>::Ptr seg_cloud_ptr =
                 std::get<1>(curl_voxel_mapping_ptr->pcl_ptr_pair_queue.front());
             pcl::PointCloud<PointT>::Ptr ground_cloud_ptr =
@@ -83,12 +80,6 @@ template <typename BasicType> void CurlTracking<BasicType>::run() {
 
             curl_voxel_mapping_ptr->preprocessing(cloud_time, seg_cloud_ptr, ground_cloud_ptr, T_j_1_j.matrix(),
                                                   Eigen::Matrix4f::Identity(), point_cloud_vec, point_cloud_info);
-            if (debug_config_ptr->is_evaluate_time) {
-                preprocessing_time_vec.push_back(preprocessing_timer.elapsedMilliseconds());
-            }
-            // do conformal mapping generate a keyframe
-            Timer keyframe_init_timer;
-            keyframe_init_timer.start();
             // NOTE: merge point_cloud_vec into a one dimensional vector
             std::vector<Eigen::MatrixX<BasicType>> point_cloud_vec_merged;
             for (const auto &vec : point_cloud_vec) {
@@ -129,7 +120,6 @@ template <typename BasicType> void CurlTracking<BasicType>::run() {
                 last_keyframe_idx = frame_idx_vec.back();
             }
             is_initial = false;
-            std::cout << "frame id: " << frame_idx_vec.back() << std::endl;
             ros::Time current_time = ros::Time::now();
             publish_lidar_tf(current_time);
             publish_trajectory(pub_trajectory, T_w_j, trajectory, current_time);
@@ -153,17 +143,12 @@ template <typename BasicType> void CurlTracking<BasicType>::run() {
             }
             last_cloud_time = cloud_time;
 
-            //            Timer tracking_timer;
-            if (debug_config_ptr->is_evaluate_time) {
-                total_timer.start();
-            }
             T_w_j = (T_w_j_1 * T_j_1_j).matrix();
 
             pcl::PointCloud<PointT>::Ptr seg_cloud_ptr =
                 std::get<1>(curl_voxel_mapping_ptr->pcl_ptr_pair_queue.front());
             pcl::PointCloud<PointT>::Ptr ground_cloud_ptr =
                 std::get<2>(curl_voxel_mapping_ptr->pcl_ptr_pair_queue.front());
-            // double cloud_time = std::get<0>(curl_voxel_mapping_ptr->pcl_ptr_pair_queue.front());
             frame_idx_vec.push_back(frame_idx_counter++);
             curl_voxel_mapping_ptr->preprocessing_queue_lock.lock();
             curl_voxel_mapping_ptr->pcl_ptr_pair_queue.pop();
@@ -198,7 +183,7 @@ template <typename BasicType> void CurlTracking<BasicType>::run() {
                 curl_voxel_mapping_ptr->curl_voxel_mapping_config_ptr->leaf_size, T_w_j_keyframe,
                 Eigen::Matrix4d(T_j_1_j.matrix()), T_w_j, point_cloud_vec, point_cloud_info, succeed_associations,
                 bounds_w, new_box_map, number_patches, is_add_keyframe, is_add_trajectory_segment, our_costs,
-                preprocessing_time_vec, data_association_time_vec, opt_time_vec, query_bounding_box_vec,
+                query_bounding_box_vec,
                 map_bounding_box_vec);
 
             if (!is_registration_succeed) {
@@ -221,16 +206,13 @@ template <typename BasicType> void CurlTracking<BasicType>::run() {
             }
             consecutive_failure_count = 0;
 
-            // for visualization
-            //            tracking_timer.start();
             ros::Time current_time = ros::Time::now();
             publish_lidar_tf(current_time);
             publish_trajectory(pub_trajectory, T_w_j, trajectory, current_time);
             publish_labelled_trajectory(T_w_j, T_w_j_1.matrix(), current_time);
             publish_point_cloud(current_time, succeed_associations);
             publish_query_map_bounding_box(current_time, query_bounding_box_vec, map_bounding_box_vec);
-            //            std::cout << "Publishing time: " << tracking_timer.elapsedMilliseconds() << " ms" <<
-            //            std::endl;
+
             // get odometry
             T_j_1_j = T_w_j_1.inverse() * Eigen::Isometry3d(T_w_j);
             // for debugging
@@ -239,9 +221,6 @@ template <typename BasicType> void CurlTracking<BasicType>::run() {
             }
             // use constant speed model to update the next initial pose
             T_w_j_1.matrix() = T_w_j;
-            // add new landmarks
-            //            std::set<std::pair<int, double>, PairCompare> new_box_pair_set(new_box_map.begin(),
-            //            new_box_map.end());
 
             std::vector<Eigen::MatrixX<BasicType>> point_cloud_lidar_vec;
             point_cloud_lidar_vec.reserve(new_box_map.size());
@@ -293,14 +272,6 @@ template <typename BasicType> void CurlTracking<BasicType>::run() {
                                     is_ground_cloud_vec, time, T_w_j, T_lastKeyframe_keyframe, frame_idx_vec.back(),
                                     point_cloud_info.seg_cloud_ptr, point_cloud_info.ground_cloud_ptr,
                                     label_ptr_for_landmark);
-                // NOTE: add current scan to patchinfo in its keyframe coordinate
-                // for (const auto &original_patch_points : original_patch_points_vec) {
-                //     original_patch_points.second->original_points_lidar_vec_emplace_back(
-                //         (T_lastKeyframe_keyframe.matrix()(Eigen::seq(0, 2), Eigen::seq(0, 2)) *
-                //          original_patch_points.first)
-                //             .colwise() +
-                //         T_lastKeyframe_keyframe.matrix()(Eigen::seq(0, 2), 3));
-                // }
             }
 
             if (is_add_keyframe) {
@@ -384,42 +355,6 @@ template <typename BasicType> void CurlTracking<BasicType>::run() {
 
             // 3. save corresponding points and its information into vectors
             ++curl_voxel_mapping_ptr->frame_counter;
-            double frame_total_time_ms = 0.0;
-            if (debug_config_ptr->is_evaluate_time) {
-                frame_total_time_ms = total_timer.elapsedMilliseconds();
-                total_time_vec.push_back(frame_total_time_ms);
-                const int frame_id = frame_idx_vec.back();
-                std::cout << "[Timing] Frame " << frame_id << " | Total: " << frame_total_time_ms << " ms | Preprocessing: " 
-                         << (preprocessing_time_vec.empty() ? 0.0 : preprocessing_time_vec.back()) << " ms | Data Association: "
-                         << (data_association_time_vec.empty() ? 0.0 : data_association_time_vec.back()) << " ms | Optimization: "
-                         << (opt_time_vec.empty() ? 0.0 : opt_time_vec.back()) << " ms | SPH Update: "
-                         << (update_sph_time_vec.empty() ? 0.0 : update_sph_time_vec.back()) << " ms" << std::endl;
-            }
-
-            // wait for BA
-            // if (curl_voxel_mapping_ptr->is_tracking_wait_BA) {
-            //     std::unique_lock<std::mutex> ul(curl_voxel_mapping_ptr->BA_wait_lock);
-            //     curl_voxel_mapping_ptr->tracking_wait_BA_cv.wait(ul);
-            // }
-            // manage memory
-            //            if (curl_voxel_mapping_ptr->curl_voxel_mapping_config_ptr->largest_frame_idx_difference != -1
-            //            &&
-            //                curl_voxel_mapping_ptr->spatial_hashing_ptr->erase_patch_caches_of_old_keyframes(
-            //                    frame_idx_vec.back(),
-            //                    curl_voxel_mapping_ptr->curl_voxel_mapping_config_ptr->largest_frame_idx_difference);
-            //            }
-
-            // manage memory
-            // if (!SH_table_config_ptr->is_SH_analytic_jacobian) {
-            //     if (curl_voxel_mapping_ptr->curl_voxel_mapping_config_ptr->max_patch_search_box_times != -1) {
-            //         std::pair<std::vector<double>, std::vector<double>> active_box_region =
-            //             curl::enlarge_bounding_box_w_times(
-            //                 bounds_w,
-            //                 curl_voxel_mapping_ptr->curl_voxel_mapping_config_ptr->max_patch_search_box_times);
-            //         curl_voxel_mapping_ptr->spatial_hashing_ptr->clear_patch_caches_out_sight(T_w_j,
-            //         active_box_region);
-            //     }
-            // }
         }
 
         rate.sleep();
@@ -469,8 +404,7 @@ template <typename BasicType> void CurlTracking<BasicType>::strict_lc_worker() {
         }
         const int current_frame_num = task.current_keyframe_ptr->frame_num;
         const int history_frame_num = task.history_keyframe_ptr->frame_num;
-        Timer ba_timer;
-        ba_timer.start();
+
         std::atomic<bool> ba_running{true};
         BADeferredPack<BasicType> deferred_pack;
         curl_pose_graph_ptr->run_local_BA_after_pose_update(
@@ -1083,9 +1017,6 @@ void CurlTracking<BasicType>::update_sph_coeff_thread(
     const std::vector<std::tuple<Eigen::MatrixX<BasicType>, std::shared_ptr<PatchInfo<BasicType>>, double>>
         &succeed_associations,
     const Eigen::Matrix<double, 4, 4, Eigen::RowMajor> &T_w_lidar) {
-    if (debug_config_ptr->is_evaluate_time) {
-        update_sph_coeff_timer.start();
-    }
 #pragma omp parallel for num_threads(curl_tracking_config_ptr->map_update_thread_num) default(none)                    \
     shared(succeed_associations, T_w_lidar, curl_voxel_mapping_ptr)
     for (const auto &association : succeed_associations) {
@@ -1139,9 +1070,6 @@ void CurlTracking<BasicType>::update_sph_coeff_thread(
                 std::get<1>(association)->last_update_keyframe_idx = current_frame_idx;
                 curl_voxel_mapping_ptr->spatial_hashing_ptr->update_patch_keyframe(std::get<1>(association));
             }
-            if (latest_keyframe) {
-                std::get<1>(association)->checkUpdate_last_update_keyframe_num = latest_keyframe->frame_num;
-            }
             if (debug_config_ptr->is_pub_dense_reconstruction) {
                 curl_voxel_mapping_ptr->rt_publish_landmark_patch_recons(std::get<1>(association));
             }
@@ -1161,10 +1089,6 @@ void CurlTracking<BasicType>::update_sph_coeff_thread(
             }
         }
     }
-
-    if (debug_config_ptr->is_evaluate_time) {
-        update_sph_time_vec.push_back(update_sph_coeff_timer.elapsedMilliseconds());
-    }
 }
 
 template <typename BasicType>
@@ -1173,9 +1097,6 @@ void CurlTracking<BasicType>::update_sph_coeff_thread(
         &succeed_associations,
     const Eigen::Matrix<double, 4, 4, Eigen::RowMajor> &T_w_lidar,
     const std::shared_ptr<KeyframeInfo<BasicType>> &keyframe_ptr, bool _is_add_trajectory_segment) {
-    if (debug_config_ptr->is_evaluate_time) {
-        update_sph_coeff_timer.start();
-    }
 #pragma omp parallel for num_threads(curl_tracking_config_ptr->map_update_thread_num) default(none)                    \
     shared(succeed_associations, T_w_lidar, curl_voxel_mapping_ptr, keyframe_ptr, _is_add_trajectory_segment)
     for (const auto &association : succeed_associations) {
@@ -1237,9 +1158,6 @@ void CurlTracking<BasicType>::update_sph_coeff_thread(
                 std::get<1>(association)->last_update_keyframe_idx = current_frame_idx;
                 curl_voxel_mapping_ptr->spatial_hashing_ptr->update_patch_keyframe(std::get<1>(association));
             }
-            if (latest_keyframe) {
-                std::get<1>(association)->checkUpdate_last_update_keyframe_num = latest_keyframe->frame_num;
-            }
             if (debug_config_ptr->is_pub_dense_reconstruction) {
                 curl_voxel_mapping_ptr->rt_publish_landmark_patch_recons(std::get<1>(association));
             }
@@ -1260,9 +1178,6 @@ void CurlTracking<BasicType>::update_sph_coeff_thread(
             }
         }
     }
-    if (debug_config_ptr->is_evaluate_time) {
-        update_sph_time_vec.push_back(update_sph_coeff_timer.elapsedMilliseconds());
-    }
 }
 
 template <typename BasicType>
@@ -1274,15 +1189,9 @@ bool CurlTracking<BasicType>::add_landmark_thread(bool is_new_keyframe, bool _is
                                                   const pcl::PointCloud<PointT>::Ptr &seg_cloud_ptr,
                                                   const pcl::PointCloud<PointT>::Ptr &ground_cloud_ptr,
                                                   std::shared_ptr<TrajectoryLabel> &_history_trajectory_label_ptr) {
-    if (debug_config_ptr->is_evaluate_time) {
-        keyframe_timer.start();
-    }
     bool is_succeed = curl_voxel_mapping_ptr->rt_fix_voxel_initialization(
         is_new_keyframe, _is_add_trajectory_segment, point_cloud_lidar_vec, is_ground_cloud_vec, time, T_w_lidar,
         _T_lastKeyframe_keyframe, true, _frame_idx, seg_cloud_ptr, ground_cloud_ptr, _history_trajectory_label_ptr);
-    if (debug_config_ptr->is_evaluate_time) {
-        landmark_initialization_time_vec.push_back(keyframe_timer.elapsedMilliseconds());
-    }
 
     return is_succeed;
 }
@@ -1479,20 +1388,6 @@ void CurlTracking<BasicType>::publish_query_map_bounding_box(
 }
 
 template <typename BasicType> void CurlTracking<BasicType>::log() {
-    if (debug_config_ptr->is_evaluate_time) {
-        std::string times_folder = debug_config_ptr->results_dir + "/times";
-        curl::create_directory_if_not_exists(times_folder);
-        std::string data_association_time_file = times_folder + "/data_association_time.txt";
-        FileReaderBase::write_vector_txt_file(data_association_time_file, data_association_time_vec);
-        std::string landmark_initialization_time_file = times_folder + "/landmark_initialization_time.txt";
-        FileReaderBase::write_vector_txt_file(landmark_initialization_time_file, landmark_initialization_time_vec);
-        std::string opt_time_file = times_folder + "/opt_time.txt";
-        FileReaderBase::write_vector_txt_file(opt_time_file, opt_time_vec);
-        std::string update_sph_time_file = times_folder + "/update_sph_time.txt";
-        FileReaderBase::write_vector_txt_file(update_sph_time_file, update_sph_time_vec);
-        std::string total_time_file = times_folder + "/total_time.txt";
-        FileReaderBase::write_vector_txt_file(total_time_file, total_time_vec);
-    }
     if (debug_config_ptr->is_save_final_results) {
         // Create result folder
         curl::create_directory_if_not_exists(debug_config_ptr->results_dir);
@@ -1611,17 +1506,6 @@ template <typename BasicType> void CurlTracking<BasicType>::log() {
             }
             std::cout << "End Saving Binary Map" << std::endl;
 
-            // save serialization files
-
-            // std::cout << "Start Serialization" << std::endl;
-            // {
-            //     std::ofstream debug_serialization_file(final_map_dir + "/serialization_map.txt");
-            //     boost::archive::text_oarchive oa(debug_serialization_file);
-            //     // write class instance to archive
-            //     oa << curl_voxel_mapping_ptr;
-            // }
-            // std::cout << "End Serialization" << std::endl;
-            // save reconstructed points
             std::cout << "Start Saving Reconstructed Points" << std::endl;
             pcl::PointCloud<PointT> map_cloud;
             int cloud_empty_counter = 0;

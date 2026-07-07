@@ -177,8 +177,6 @@ template <typename BasicType> class SpatialHashing {
                 if (target->second.empty()) { // if there are no patches in the grid, then remove the grid
                     all_patches_map.erase(target);
                 }
-            } else {
-                std::cout << "Warning: the patch is not in the hash map!" << std::endl;
             }
         }
         patch_info_ptr->keyframe_ptr->local_patches.erase(patch_info_ptr->key);
@@ -215,8 +213,6 @@ template <typename BasicType> class SpatialHashing {
                 if (target->second.empty()) { // if there are no patches in the grid, then remove the grid
                     all_patches_map.erase(target);
                 }
-            } else {
-                std::cout << "Warning: the patch is not in the hash map!" << std::endl;
             }
         }
         patch_id_iter = keyframe_ptr->local_patches.erase(patch_id_iter);
@@ -704,7 +700,6 @@ template <typename BasicType> class SpatialHashing {
                 }
             }
         }
-        std::cout << "update keyframe pose and bounding box by pose graph" << std::endl;
     }
 
     void apply_delta_to_non_backend_keyframes(const Eigen::Matrix<double, 4, 4, Eigen::RowMajor> &delta) {

@@ -321,9 +321,6 @@ void add_to_queue(std::shared_ptr<FileReader<BasicType, SemanticType>> file_load
         }
         m_queue_lock.unlock();
     }
-    // while (true) {
-    //     std::cout << "I am a thread" << std::endl;
-    // }
 }
 
 template <typename BasicType, typename SemanticType>

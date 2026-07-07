@@ -243,7 +243,6 @@ template <typename BasicType> void CurlContinuousRecons<BasicType>::reconstructi
                 }
             }
             ++progress_counter;
-            std::cout << "Progress: " << progress_counter / double(simple_patches.size()) * 100 << "%" << std::endl;
         }
     }
 
@@ -253,21 +252,18 @@ template <typename BasicType> void CurlContinuousRecons<BasicType>::reconstructi
 }
 
 template <typename BasicType> bool CurlContinuousRecons<BasicType>::load_from_binary(const std::string &filename) {
-    std::cout << "Start loading: " << filename << std::endl;
     std::ifstream infile;
     infile.open(filename, std::ios::binary | std::ios::in);
     Eigen::MatrixXf T_tmp(3, 4);
     while (true) {
         SimplePatch simple_patch;
         if (!infile.read(reinterpret_cast<char *>(&simple_patch.is_ground), sizeof(bool))) {
-            std::cout << "Finish loading binary file: " << simple_patches.size() << " patches" << std::endl;
             return true;
         }
         simple_patch.set_boundary(curl_voxel_mapping_config_ptr->half_diag_cut_threshold);
         simple_patch.sph_degree =
             simple_patch.is_ground ? SH_table_config_ptr->ground_SH_degree : SH_table_config_ptr->max_SH_degree;
         if (!infile.read(reinterpret_cast<char *>(T_tmp.data()), T_tmp.size() * sizeof(float))) {
-            std::cout << "Invalid binary file" << std::endl;
             return false;
         }
         simple_patch.T_w_obj.setIdentity();
@@ -275,7 +271,6 @@ template <typename BasicType> bool CurlContinuousRecons<BasicType>::load_from_bi
         simple_patch.sph_coeff.resize((simple_patch.sph_degree + 1) * (simple_patch.sph_degree + 1));
         if (!infile.read(reinterpret_cast<char *>(simple_patch.sph_coeff.data()),
                          simple_patch.sph_coeff.size() * sizeof(double))) {
-            std::cout << "Invalid binary file" << std::endl;
             return false;
         }
         simple_patch.default_img_iso = direct_method_config_ptr->minimum_img_rso;

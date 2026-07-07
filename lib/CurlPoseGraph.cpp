@@ -3,7 +3,6 @@
 //
 
 #include "curl_slam/CurlPoseGraph.h"
-#include "curl_slam/Timer.h"
 #include <algorithm>
 #include <cstdlib>
 #include <iostream>
@@ -207,8 +206,6 @@ void CurlPoseGraph<BasicType>::local_BA_data_association_point_clouds(
             break;
         }
         pcl::PointCloud<PointT> seg_cloud_transformed_curr, ground_cloud_transformed_curr;
-        Timer transform_timer;
-        transform_timer.start();
         pcl::transformPointCloud(*keyframe_ptr->seg_cloud_ptr, seg_cloud_transformed_curr,
                                  Eigen::Matrix4f(keyframe_ptr->get_T_w_lidar().template cast<float>()));
         pcl::transformPointCloud(*keyframe_ptr->ground_cloud_ptr, ground_cloud_transformed_curr,
@@ -217,31 +214,19 @@ void CurlPoseGraph<BasicType>::local_BA_data_association_point_clouds(
         // get data associations from the history map
         std::vector<std::tuple<Eigen::MatrixX<BasicType>, std::shared_ptr<PatchInfo<BasicType>>, double>>
             pose_succeed_associations;
-        Timer assoc_timer;
-        assoc_timer.start();
         double association_num =
             get_associations_from_raw_points(current_frame_idx, keyframe_ptr, seg_cloud_transformed_curr,
                                              ground_cloud_transformed_curr, history_label_filter_ptr,
                                              history_label_frame_num_snapshot_ptr,
                                              pose_succeed_associations);
-        // std::cout << "association_percentage: " << association_percentage << std::endl;
         if (is_initial || association_num > max_associate_patch_num) {
             max_associate_patch_num = association_num;
             is_initial = false;
-            std::cout << "^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^" << std::endl;
-            std::cout << max_associate_patch_num << std::endl;
-            std::cout << "^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^" << std::endl;
             invalid_counter = 0;
         } else if (association_num < 0.9 * max_associate_patch_num) {
-            // ++invalid_counter;
-            // if (invalid_counter > 3) {
-            // }
-            // continue;
             break;
         }
-        // TODO: the following should be remove out of this loop. history_keyframes_set needs to be preprocessed
-        Timer load_residuals_timer;
-        load_residuals_timer.start();
+
         CurlLocalBA<BasicType>::load_residuals_point_clouds(
             problem, _SE3_manifold, _loss_function, &ordering, keyframe_ptr, pose_succeed_associations,
             curl_tracking_config_ptr, curl_voxel_mapping_config_ptr, SH_table_config_ptr, associated_keyframes,
@@ -273,16 +258,12 @@ double CurlPoseGraph<BasicType>::get_associations_from_raw_points(
     const std::shared_ptr<const std::unordered_set<unsigned int>> &history_label_frame_num_snapshot_ptr,
     std::vector<std::tuple<Eigen::MatrixX<BasicType>, std::shared_ptr<PatchInfo<BasicType>>, double>>
         &pose_succeed_associations) {
-    Timer assoc_total_timer;
-    assoc_total_timer.start();
     double seg_leaf_array[3] = {curl_voxel_mapping_ptr->curl_voxel_mapping_config_ptr->cut_threshold,
                                 curl_voxel_mapping_ptr->curl_voxel_mapping_config_ptr->cut_threshold,
                                 curl_voxel_mapping_ptr->curl_voxel_mapping_config_ptr->cut_threshold};
     std::pair<std::vector<double>, std::vector<double>> scan_bounds_w =
         curl::get_bounding_box_w<PointT>(seg_cloud_transformed_curr, ground_cloud_transformed_curr);
     std::vector<std::vector<Eigen::MatrixX<BasicType>>> seg_cloud_vec;
-    Timer divide_timer;
-    divide_timer.start();
     seg_cloud_vec = curl::divide_patches<PointT, BasicType>(
         seg_cloud_transformed_curr, *keyframe_ptr->seg_cloud_ptr, seg_leaf_array,
         curl_voxel_mapping_ptr->curl_voxel_mapping_config_ptr->patch_minimun_pts_num_after_filter, scan_bounds_w.first,
@@ -318,7 +299,6 @@ double CurlPoseGraph<BasicType>::get_associations_from_raw_points(
                                                        ground_is_ground_cloud_vec[i].begin(),
                                                        ground_is_ground_cloud_vec[i].end());
     }
-    const double divide_ms = divide_timer.elapsedMilliseconds();
     point_cloud_info.intersected_score_pairs_vec.resize(point_cloud_vec.size());
     point_cloud_info.bounding_box_pair_vec.resize(point_cloud_vec.size());
     int intersect_counter = 0;
@@ -334,8 +314,6 @@ double CurlPoseGraph<BasicType>::get_associations_from_raw_points(
         point_cloud_info.bounding_box_pair_vec[i].resize(point_cloud_vec[i].size());
     }
 
-    Timer aabb_precompute_timer;
-    aabb_precompute_timer.start();
     #pragma omp parallel for num_threads(curl_voxel_mapping_config_ptr->data_association_thread_num) \
         default(none) shared(point_cloud_vec, point_cloud_info, R_w_lidar, t_w_lidar) schedule(dynamic)
     for (int i = 0; i < point_cloud_vec.size(); ++i) {
@@ -359,15 +337,12 @@ double CurlPoseGraph<BasicType>::get_associations_from_raw_points(
             point_cloud_info.bounding_box_pair_vec[i][j] = std::make_pair(lower_bound_w, upper_bound_w);
         }
     }
-    const double aabb_precompute_ms = aabb_precompute_timer.elapsedMilliseconds();
 
     std::vector<std::pair<std::shared_ptr<PatchInfo<BasicType>>, double>> intersected_pairs;
     intersected_pairs.reserve(64);
     std::vector<std::pair<std::shared_ptr<PatchInfo<BasicType>>, double>> local_intersected_pairs;
     std::vector<double> lower_bound_w(3);
     std::vector<double> upper_bound_w(3);
-    Timer query_timer;
-    query_timer.start();
     #pragma omp parallel num_threads(curl_voxel_mapping_config_ptr->data_association_thread_num) \
         default(none) shared(point_cloud_vec, point_cloud_info, keyframe_ptr, R_w_lidar, t_w_lidar, \
                             pending_overlap_snapshot_ptr, history_label_filter_ptr, history_label_frame_num_snapshot_ptr) \
@@ -429,10 +404,7 @@ double CurlPoseGraph<BasicType>::get_associations_from_raw_points(
     }
     pending_overlap_checked.store(pending_overlap_checked_local);
     pending_overlap_skipped.store(pending_overlap_skipped_local);
-    const double query_ms = query_timer.elapsedMilliseconds();
 
-    Timer match_timer;
-    match_timer.start();
     std::unordered_map<const PatchInfo<BasicType> *, MapDataAsso> local_data_asso;
     local_data_asso.reserve(point_cloud_vec.size() * 4);
     std::vector<std::vector<ScanDataAsso<BasicType>>> initial_scan_data_asso_vec(point_cloud_vec.size());
@@ -533,10 +505,6 @@ double CurlPoseGraph<BasicType>::get_associations_from_raw_points(
             }
         }
     }
-    const double match_ms = match_timer.elapsedMilliseconds();
-    // sort seg_sets and ground_sets
-    Timer sort_timer;
-    sort_timer.start();
     for (auto &set : seg_sets) {
         std::sort(set.begin(), set.end(),
                   [](std::tuple<std::array<int, 2>, double, std::shared_ptr<PatchInfo<BasicType>>> &a,
@@ -551,12 +519,9 @@ double CurlPoseGraph<BasicType>::get_associations_from_raw_points(
                       return std::get<1>(a) > std::get<1>(b);
                   });
     }
-    const double sort_ms = sort_timer.elapsedMilliseconds();
 
     int true_ground_num = 0;
     int true_seg_num = 0;
-    Timer collect_timer;
-    collect_timer.start();
     for (const auto &region : ground_sets) {
         int region_counter = 0;
         for (const auto &ground_set : region) {
@@ -578,8 +543,6 @@ double CurlPoseGraph<BasicType>::get_associations_from_raw_points(
             ++region_counter;
         }
     }
-    const double collect_ms = collect_timer.elapsedMilliseconds();
-
     return (true_seg_num + true_ground_num);
 }
 
@@ -687,7 +650,6 @@ bool CurlPoseGraph<BasicType>::detect_loop_for_keyframe(
         get_keyframe_point_clouds(sc_matches.first, T_hisLidar_w);
     Eigen::Matrix4f T_his_curr_init = T_hisLidar_w * current_keyframe_ptr->get_T_w_lidar().template cast<float>();
     T_his_curr_init(Eigen::seq(0, 2), 3).setZero();
-    std::cout << "T_his_curr_init: " << T_his_curr_init << std::endl;
 
     pcl::IterativeClosestPoint<PointT, PointT> icp;
     icp.setMaxCorrespondenceDistance(100);
@@ -699,8 +661,6 @@ bool CurlPoseGraph<BasicType>::detect_loop_for_keyframe(
     assert(current_keyframe_ptr->ground_cloud_ptr != nullptr);
     pcl::PointCloud<PointT>::Ptr current_cloud_ptr =
         ((*current_keyframe_ptr->seg_cloud_ptr) + (*current_keyframe_ptr->ground_cloud_ptr)).makeShared();
-    std::cout << "history_integrate_cloud_ptr size: " << history_integrate_cloud_ptr->size() << std::endl;
-    std::cout << "current_cloud_ptr size: " << current_cloud_ptr->size() << std::endl;
     pcl::PointCloud<PointT>::Ptr transformed_current_cloud_ptr = std::make_shared<pcl::PointCloud<PointT>>();
     pcl::transformPointCloud(*current_cloud_ptr, *transformed_current_cloud_ptr, T_his_curr_init);
     icp.setInputSource(transformed_current_cloud_ptr);
@@ -710,13 +670,9 @@ bool CurlPoseGraph<BasicType>::detect_loop_for_keyframe(
     icp.align(*unused_result);
     bool isValidSCloopFactor = false;
     double historyKeyframeFitnessScore = 1.5;
-    std::cout << "[SC] ICP fit score: " << icp.getFitnessScore() << std::endl;
     if (icp.hasConverged() == false || icp.getFitnessScore() > historyKeyframeFitnessScore) {
-        std::cout << "[SC] Reject this loop (bad icp fit score, > " << historyKeyframeFitnessScore << ")" << std::endl;
         isValidSCloopFactor = false;
     } else {
-        std::cout << "[SC] The detected loop factor is added between Current [ " << current_keyframe_ptr->frame_idx
-                  << " ] and SC nearest [ " << history_keyframe_ptr->frame_idx << " ]" << std::endl;
         isValidSCloopFactor = true;
     }
     if (isValidSCloopFactor) {
@@ -733,9 +689,7 @@ bool CurlPoseGraph<BasicType>::detect_loop_for_keyframe(
             current_keyframe_ptr->seg_cloud_ptr, current_keyframe_ptr->ground_cloud_ptr,
             curl_voxel_mapping_config_ptr->is_voxel_grid_filter, curl_voxel_mapping_config_ptr->leaf_size,
             history_keyframe_ptr->associated_patches, T_w_curr);
-        std::cout << "Before optimization: \n" << T_his_curr_matrix << std::endl;
         T_his_curr_matrix = Eigen::Isometry3d(history_keyframe_ptr->get_T_w_lidar()).inverse().matrix() * T_w_curr;
-        std::cout << "After optimization: \n" << T_his_curr_matrix << std::endl;
         Pose3d T_his_curr;
         T_his_curr.set_pose(T_his_curr_matrix);
         add_loop_closure_constrain(history_keyframe_ptr, current_keyframe_ptr, T_his_curr, true);
@@ -758,7 +712,6 @@ template <typename BasicType> void CurlPoseGraph<BasicType>::solve_pose_graph() 
         options.minimizer_progress_to_stdout = true;
         ceres::Solver::Summary summary;
         ceres::Solve(options, &pose_graph_problem, &summary);
-        std::cout << summary.FullReport() << '\n';
     }
     {
         // TODO: update the poses of the keyframes
@@ -1008,18 +961,12 @@ std::shared_ptr<OverlapRemovalPlan> CurlPoseGraph<BasicType>::build_overlap_remo
         plan->owner_frame_nums.insert(thread_owner_frame_nums[t].begin(), thread_owner_frame_nums[t].end());
         plan->replacement_map.insert(thread_replacement_map[t].begin(), thread_replacement_map[t].end());
     }
-    std::cout << "[StrictLC][PatchOverlapPlan] ref_frame=" << strict_ref_frame_num
-              << " backend_keyframes=" << keyframe_datas.size()
-              << " scanned_local_patches=" << scanned_local_patch_num
-              << " candidates=" << candidate_remove_num
-              << " stale_missing=" << stale_missing_patch_num << std::endl;
     return plan;
 }
 
 template <typename BasicType>
 void CurlPoseGraph<BasicType>::apply_overlap_removal_plan(const OverlapRemovalPlan &plan) {
     if (plan.remove_patch_ids.empty()) {
-        std::cout << "[StrictLC][PatchOverlap] skip_empty_plan" << std::endl;
         return;
     }
     auto merge_label_frame_nums = [](const std::shared_ptr<PatchInfo<BasicType>> &from,
@@ -1130,11 +1077,6 @@ void CurlPoseGraph<BasicType>::apply_overlap_removal_plan(const OverlapRemovalPl
         ++removed_patch_num;
     }
     apply_associated_patch_replacements(associated_replacements);
-    std::cout << "[StrictLC][PatchOverlap] plan_ref_frame=" << plan.ref_frame_num
-              << " removed=" << removed_patch_num
-              << " replaced=" << replaced_patch_num
-              << " stale_missing=" << stale_missing_patch_num
-              << " candidates=" << plan.remove_patch_ids.size() << std::endl;
 }
 
 template <typename BasicType>
@@ -1331,21 +1273,10 @@ void CurlPoseGraph<BasicType>::run_local_BA_after_pose_update(
                                            history_keyframes_set, opt_history_keyframes_set,
                                            ba_history_label_filter_ptr, ba_history_keyframe_frame_nums_snapshot_ptr,
                                            max_frame_num_for_ba, deferred_pack_out);
-    // TODO: 3. solve the local BA optimization problem
-    std::cout << "********************************************" << std::endl;
-    std::cout << "********************************************" << std::endl;
-    std::cout << "********************************************" << std::endl;
-    std::cout << associated_keyframes.size() << std::endl;
-    std::cout << "********************************************" << std::endl;
-    std::cout << "********************************************" << std::endl;
-    std::cout << "********************************************" << std::endl;
 
     CurlLocalBA<BasicType>::solve_problem(problem, curl_voxel_mapping_config_ptr, ordering);
     const uint64_t overlap_checked = pending_overlap_checked.load();
     const uint64_t overlap_skipped = pending_overlap_skipped.load();
-    std::cout << "[StrictLC][BA][PendingOverlap] current_frame=" << ba_current_keyframe_ptr->frame_num
-              << " history_frame=" << ba_history_keyframe_ptr->frame_num << " checked=" << overlap_checked
-              << " skipped=" << overlap_skipped << std::endl;
     target_pending_ba_patches.clear();
     target_pending_ba_patches.reserve(all_associated_history_patches.size());
     for (const auto &patch_info_ptr : all_associated_history_patches) {
@@ -1375,8 +1306,6 @@ void CurlPoseGraph<BasicType>::run_local_BA_after_pose_update(
         } else {
             add_loop_closure_constrain(keyframe_pair.second[0].first, keyframe_pair.first, T_second_first, false);
         }
-        std::cout << "add associated constrains: " << keyframe_pair.second[0].first->frame_idx << " "
-                  << keyframe_pair.first->frame_idx << std::endl;
         // begin for visualization
         current_keyframe_sets.insert(keyframe_pair.first);
         // update the associated patches
@@ -1420,8 +1349,6 @@ void CurlPoseGraph<BasicType>::run_local_BA_after_pose_update(
                         keyframe_ptr->loop_closure_cost_function = nullptr;
                     }
                 }
-                std::cout << "remove current keyframe num: " << last_keyframe_ptr->frame_idx << " "
-                          << keyframe_ptr->frame_idx << std::endl;
             }
         }
         last_keyframe_ptr = keyframe_ptr;
@@ -1466,8 +1393,6 @@ void CurlPoseGraph<BasicType>::run_local_BA_after_pose_update(
                                 keyframe_ptr->loop_closure_cost_function = nullptr;
                             }
                         }
-                        std::cout << "remove history keyframe num: " << last_keyframe_ptr->frame_idx << " "
-                                  << keyframe_ptr->frame_idx << std::endl;
                     }
                 }
             }
@@ -1689,12 +1614,6 @@ template <typename BasicType> void CurlPoseGraph<BasicType>::remove_overlapped_p
         }
     }
     apply_associated_patch_replacements(associated_replacements);
-    std::cout << "[StrictLC][PatchOverlap] current_group_ref_frame=" << strict_ref_frame_num
-              << " backend_keyframes=" << backend_current_group_keyframe_num
-              << " scanned_local_patches=" << scanned_local_patch_num
-              << " removed=" << removed_patch_num
-              << " replaced=" << replaced_patch_num
-              << " stale_missing=" << stale_missing_patch_num << std::endl;
 }
 
 template <typename BasicType> void CurlPoseGraph<BasicType>::remove_overlapped_patches_after_loop_history() {
@@ -1913,15 +1832,11 @@ template <typename BasicType> void CurlPoseGraph<BasicType>::remove_overlapped_p
 template <typename BasicType> void CurlPoseGraph<BasicType>::apply_pending_ba_pose_graph_updates() {
     if (pending_ba_pose_graph_constrains.empty() && pending_ba_remove_loop_constrains.empty() &&
         !pending_ba_remove_icp_constrain_ptr) {
-        std::cout << "[StrictLC][PGO] skip_empty_pending_updates" << std::endl;
         return;
     }
     const std::size_t pgo_constraints_num = pending_ba_pose_graph_constrains.size();
     const std::size_t remove_loop_num = pending_ba_remove_loop_constrains.size();
     const bool has_remove_icp = (pending_ba_remove_icp_constrain_ptr != nullptr);
-    std::cout << "[StrictLC][PGO] apply_pending_updates constraints=" << pgo_constraints_num
-              << " remove_loop_constrains=" << remove_loop_num
-              << " remove_icp=" << (has_remove_icp ? 1 : 0) << std::endl;
     for (const auto &pending_constrain : pending_ba_pose_graph_constrains) {
         auto history_keyframe_ptr_local = pending_constrain.history_keyframe_ptr.lock();
         auto current_keyframe_ptr_local = pending_constrain.current_keyframe_ptr.lock();
@@ -1951,24 +1866,18 @@ template <typename BasicType> void CurlPoseGraph<BasicType>::apply_pending_ba_po
     pending_ba_pose_graph_constrains.clear();
     pending_ba_remove_loop_constrains.clear();
     pending_ba_remove_icp_constrain_ptr = nullptr;
-    std::cout << "[StrictLC][PGO] solve_pose_graph_start (pending)" << std::endl;
     solve_pose_graph();
-    std::cout << "[StrictLC][PGO] solve_pose_graph_done (pending)" << std::endl;
 }
 
 template <typename BasicType>
 void CurlPoseGraph<BasicType>::apply_pending_ba_pose_graph_updates(BADeferredPack<BasicType> &pack) {
     if (pack.pending_ba_pose_graph_constrains.empty() && pack.pending_ba_remove_loop_constrains.empty() &&
         !pack.pending_ba_remove_icp_constrain_ptr) {
-        std::cout << "[StrictLC][PGO] skip_empty_pack_updates" << std::endl;
         return;
     }
     const std::size_t pgo_constraints_num = pack.pending_ba_pose_graph_constrains.size();
     const std::size_t remove_loop_num = pack.pending_ba_remove_loop_constrains.size();
     const bool has_remove_icp = (pack.pending_ba_remove_icp_constrain_ptr != nullptr);
-    std::cout << "[StrictLC][PGO] apply_pack_updates constraints=" << pgo_constraints_num
-              << " remove_loop_constrains=" << remove_loop_num
-              << " remove_icp=" << (has_remove_icp ? 1 : 0) << std::endl;
     for (const auto &pending_constrain : pack.pending_ba_pose_graph_constrains) {
         auto history_keyframe_ptr_local = pending_constrain.history_keyframe_ptr.lock();
         auto current_keyframe_ptr_local = pending_constrain.current_keyframe_ptr.lock();
@@ -1998,14 +1907,11 @@ void CurlPoseGraph<BasicType>::apply_pending_ba_pose_graph_updates(BADeferredPac
     pack.pending_ba_pose_graph_constrains.clear();
     pack.pending_ba_remove_loop_constrains.clear();
     pack.pending_ba_remove_icp_constrain_ptr = nullptr;
-    std::cout << "[StrictLC][PGO] solve_pose_graph_start (pack)" << std::endl;
     solve_pose_graph();
-    std::cout << "[StrictLC][PGO] solve_pose_graph_done (pack)" << std::endl;
 }
 
 template <typename BasicType> void CurlPoseGraph<BasicType>::apply_pending_ba_updates() {
     if (pending_ba_patches.empty()) {
-        std::cout << "[StrictLC][BACommit] skip_empty_pending_patches" << std::endl;
         return;
     }
     std::size_t committed_patch_num = 0;
@@ -2018,14 +1924,11 @@ template <typename BasicType> void CurlPoseGraph<BasicType>::apply_pending_ba_up
             }
         }
     }
-    std::cout << "[StrictLC][BACommit] pending committed_patches=" << committed_patch_num
-              << " requested=" << pending_ba_patches.size() << std::endl;
     pending_ba_patches.clear();
 }
 
 template <typename BasicType> void CurlPoseGraph<BasicType>::apply_pending_ba_updates(BADeferredPack<BasicType> &pack) {
     if (pack.pending_ba_patches.empty()) {
-        std::cout << "[StrictLC][BACommit] skip_empty_pack_patches" << std::endl;
         return;
     }
     std::size_t committed_patch_num = 0;
@@ -2038,8 +1941,6 @@ template <typename BasicType> void CurlPoseGraph<BasicType>::apply_pending_ba_up
             }
         }
     }
-    std::cout << "[StrictLC][BACommit] pack committed_patches=" << committed_patch_num
-              << " requested=" << pack.pending_ba_patches.size() << std::endl;
     pack.pending_ba_patches.clear();
 }
 
@@ -2050,7 +1951,6 @@ template <typename BasicType> void CurlPoseGraph<BasicType>::apply_pending_assoc
 template <typename BasicType>
 void CurlPoseGraph<BasicType>::apply_pending_associated_patches_updates_up_to_frame(int max_current_frame_num) {
     if (pending_associated_keyframes.empty()) {
-        std::cout << "[StrictLC][AssocPatchSync] skip_empty_pending_pairs" << std::endl;
         return;
     }
     std::size_t pair_num = 0;
@@ -2064,15 +1964,11 @@ void CurlPoseGraph<BasicType>::apply_pending_associated_patches_updates_up_to_fr
         auto current_keyframe = pair.first.lock();
         auto history_keyframe = pair.second.lock();
         if (!current_keyframe || !history_keyframe) {
-            std::cout << "[StrictLC][AssocPatchSync][Pair] scope=pending status=expired_weak_ptr" << std::endl;
             continue;
         }
         if (max_current_frame_num >= 0 && current_keyframe->frame_num > max_current_frame_num) {
             deferred_pairs.emplace_back(pair);
             ++deferred_pair_num;
-            std::cout << "[StrictLC][AssocPatchSync][Pair] scope=pending defer_newer_pair current_frame="
-                      << current_keyframe->frame_num << " history_frame=" << history_keyframe->frame_num
-                      << " max_current_frame=" << max_current_frame_num << std::endl;
             continue;
         }
         std::shared_lock<std::shared_mutex> history_lock(history_keyframe->associated_patches_lock);
@@ -2085,33 +1981,20 @@ void CurlPoseGraph<BasicType>::apply_pending_associated_patches_updates_up_to_fr
         ++pair_num;
         const long long delta = static_cast<long long>(current_after) - static_cast<long long>(current_before);
         total_delta += delta;
-        std::cout << "[StrictLC][AssocPatchSync][Pair] scope=pending current_frame=" << current_keyframe->frame_num
-                  << " history_frame=" << history_keyframe->frame_num << " current_before=" << current_before
-                  << " history_size=" << history_size << " current_after=" << current_after
-                  << " delta=" << delta << std::endl;
         if (delta < 0) {
             ++shrink_pair_num;
         } else if (delta > 0) {
             ++grow_pair_num;
         }
         if (current_before > 0 && current_after * 4 < current_before) {
-            std::cout << "[StrictLC][AssocPatchSync] pending severe_shrink_after_union current_frame="
-                      << current_keyframe->frame_num << " history_frame=" << history_keyframe->frame_num
-                      << " current_before=" << current_before << " current_after=" << current_after
-                      << " history_size=" << history_size << std::endl;
         }
     }
     pending_associated_keyframes = std::move(deferred_pairs);
-    std::cout << "[StrictLC][AssocPatchSync] pending pairs=" << pair_num << " shrink_pairs=" << shrink_pair_num
-              << " grow_pairs=" << grow_pair_num << " total_delta=" << total_delta
-              << " deferred_newer_pairs=" << deferred_pair_num
-              << " remaining_pending=" << pending_associated_keyframes.size() << std::endl;
 }
 
 template <typename BasicType>
 void CurlPoseGraph<BasicType>::apply_pending_associated_patches_updates(BADeferredPack<BasicType> &pack) {
     if (pack.pending_associated_keyframes.empty()) {
-        std::cout << "[StrictLC][AssocPatchSync] skip_empty_pack_pairs" << std::endl;
         return;
     }
     std::size_t pair_num = 0;
@@ -2122,7 +2005,6 @@ void CurlPoseGraph<BasicType>::apply_pending_associated_patches_updates(BADeferr
         auto current_keyframe = pair.first.lock();
         auto history_keyframe = pair.second.lock();
         if (!current_keyframe || !history_keyframe) {
-            std::cout << "[StrictLC][AssocPatchSync][Pair] scope=pack status=expired_weak_ptr" << std::endl;
             continue;
         }
         std::shared_lock<std::shared_mutex> history_lock(history_keyframe->associated_patches_lock);
@@ -2135,24 +2017,12 @@ void CurlPoseGraph<BasicType>::apply_pending_associated_patches_updates(BADeferr
         ++pair_num;
         const long long delta = static_cast<long long>(current_after) - static_cast<long long>(current_before);
         total_delta += delta;
-        std::cout << "[StrictLC][AssocPatchSync][Pair] scope=pack current_frame=" << current_keyframe->frame_num
-                  << " history_frame=" << history_keyframe->frame_num << " current_before=" << current_before
-                  << " history_size=" << history_size << " current_after=" << current_after
-                  << " delta=" << delta << std::endl;
         if (delta < 0) {
             ++shrink_pair_num;
         } else if (delta > 0) {
             ++grow_pair_num;
         }
-        if (current_before > 0 && current_after * 4 < current_before) {
-            std::cout << "[StrictLC][AssocPatchSync] pack severe_shrink_after_union current_frame="
-                      << current_keyframe->frame_num << " history_frame=" << history_keyframe->frame_num
-                      << " current_before=" << current_before << " current_after=" << current_after
-                      << " history_size=" << history_size << std::endl;
-        }
     }
-    std::cout << "[StrictLC][AssocPatchSync] pack pairs=" << pair_num << " shrink_pairs=" << shrink_pair_num
-              << " grow_pairs=" << grow_pair_num << " total_delta=" << total_delta << std::endl;
     pack.pending_associated_keyframes.clear();
 }
 
@@ -2435,18 +2305,6 @@ std::shared_ptr<KeyframeInfo<BasicType>> CurlPoseGraph<BasicType>::pose_graph_pr
     curl_voxel_mapping_ptr->is_loop_closure_detected = true;
     pre_merge_current_label_ptr = current_keyframe_ptr ? current_keyframe_ptr->trajectory_label_ptr : nullptr;
     pre_merge_history_label_ptr = history_keyframe_ptr ? history_keyframe_ptr->trajectory_label_ptr : nullptr;
-    // std::cout << "After merge" << std::endl;
-    // std::cout << "True Current: " << current_keyframe_ptr->trajectory_label_ptr->label_frame_num << "\n";
-    // for (auto &neighbor_frame_num : current_keyframe_ptr->trajectory_label_ptr->neighbor_label_frame_num) {
-    //     std::cout << neighbor_frame_num << " ";
-    // }
-    // std::cout << std::endl;
-
-    // std::cout << "History: " << history_keyframe_ptr->trajectory_label_ptr->label_frame_num << "\n";
-    // for (auto &neighbor_frame_num : history_keyframe_ptr->trajectory_label_ptr->neighbor_label_frame_num) {
-    //     std::cout << neighbor_frame_num << " ";
-    // }
-    // std::cout << std::endl;
     return history_keyframe_ptr;
 }
 

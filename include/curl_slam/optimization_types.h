@@ -1422,11 +1422,6 @@ class IcpPointToPlaneFactor : public ceres::SizedCostFunction<1, 16> {
         residuals[0] =
             (T_o_j(Eigen::seq(0, 2), Eigen::seq(0, 2)) * p_j + T_o_j(Eigen::seq(0, 2), 3) - p_o).transpose() *
             p_o_normal;
-        if (residuals[0] == NAN) {
-            std::cout << "p_j: " << p_j << std::endl;
-            std::cout << "p_o: " << p_o << std::endl;
-            std::cout << "p_o_normal: " << p_o_normal << std::endl;
-        }
 
         if (jacobians != nullptr) {
             if (jacobians[0] != nullptr) {
@@ -1489,26 +1484,10 @@ class PoseGraph3dErrorTerm {
     void remove_icp_constrain() {
         if (is_icp_constrain) {
             weight = 0;
-            std::cout << "++++++++++++++++++++" << std::endl;
-            std::cout << "remove icp constrain" << std::endl;
-            std::cout << "++++++++++++++++++++" << std::endl;
-        }
-    }
-
-    void add_icp_constrain() {
-        if (is_icp_constrain) {
-            weight = 1;
-            std::cout << "++++++++++++++++++++" << std::endl;
-            std::cout << "add icp constrain" << std::endl;
-            std::cout << "++++++++++++++++++++" << std::endl;
         }
     }
 
     void remove_this_constrain() { weight = 0; }
-
-    void add_this_constrain() { weight = 1; }
-
-    void set_t_ab_measured(const Pose3d &_t_ab_measured) { t_ab_measured = _t_ab_measured; }
 
     static ceres::AutoDiffCostFunction<PoseGraph3dErrorTerm, 6, 3, 4, 3, 4> *Create(const Pose3d &_t_ab_measured,
                                                                                     bool _is_icp_constrain) {

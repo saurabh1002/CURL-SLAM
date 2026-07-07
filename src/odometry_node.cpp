@@ -32,7 +32,6 @@ int main(int argc, char **argv) {
     } else {
         load_debug_config(argv[1], *debug_config_ptr);
     }
-    // Disable intermediate debug outputs; keep final path/map/time/config only.
     debug_config_ptr->color_map.resize(5, 3);
     debug_config_ptr->color_map << 1, 0, 0, 0, 1, 0, 0, 0, 1, 1, 1, 0, 0, 1, 1;
     ROS_INFO("Sequence: %s", debug_config_ptr->seq.c_str());

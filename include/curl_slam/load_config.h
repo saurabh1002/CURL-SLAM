@@ -120,7 +120,6 @@ struct DEBUG_CONFIG {
     std::string data_set;
     std::string seq;
     bool is_save_final_results;
-    bool is_evaluate_time;
     bool is_pub_dense_reconstruction;
     bool is_save_final_map;
     Eigen::MatrixXf color_map;
@@ -390,10 +389,6 @@ void load_debug_config(const std::string &dir, DEBUG_CONFIG &debug_config, const
     if (config["DEBUG"]["is_save_final_results"]) {
         debug_config.is_save_final_results =
             config["DEBUG"]["is_save_final_results"].as<decltype(debug_config.is_save_final_results)>();
-    }
-    if (config["DEBUG"]["is_evaluate_time"]) {
-        debug_config.is_evaluate_time =
-            config["DEBUG"]["is_evaluate_time"].as<decltype(debug_config.is_evaluate_time)>();
     }
     if (config["DEBUG"]["PUB"]["is_pub_dense_reconstruction"]) {
         debug_config.is_pub_dense_reconstruction = config["DEBUG"]["PUB"]["is_pub_dense_reconstruction"]

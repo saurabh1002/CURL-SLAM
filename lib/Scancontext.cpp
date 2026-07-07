@@ -3,8 +3,6 @@
 // namespace SC2
 // {
 
-void coreImportTest(void) { cout << "scancontext lib is successfully imported." << endl; } // coreImportTest
-
 float rad2deg(float radians) { return radians * 180.0 / M_PI; }
 
 float deg2rad(float degrees) { return degrees * M_PI / 180.0; }
@@ -197,9 +195,6 @@ void SCManager::makeAndSaveScancontextAndKeys(pcl::PointCloud<SCPointType> &_sca
     polarcontext_invkeys_.push_back(ringkey);
     polarcontext_vkeys_.push_back(sectorkey);
     polarcontext_invkeys_mat_.push_back(polarcontext_invkey_vec);
-
-    // cout <<polarcontext_vkeys_.size() << endl;
-
 } // SCManager::makeAndSaveScancontextAndKeys
 
 std::pair<int, float> SCManager::detectLoopClosureID(void) {
@@ -228,8 +223,6 @@ std::pair<int, float> SCManager::detectLoopClosureID(void) {
         polarcontext_tree_.reset();
         polarcontext_tree_ =
             std::make_unique<InvKeyTree>(PC_NUM_RING /* dim */, polarcontext_invkeys_to_search_, 10 /* max leaf */);
-        // tree_ptr_->index->buildIndex(); // inernally called in the constructor of InvKeyTree (for detail, refer the
-        // nanoflann and KDtreeVectorOfVectorsAdaptor)
         t_tree_construction.toc("Tree construction");
     }
     tree_making_period_conter = tree_making_period_conter + 1;
@@ -273,16 +266,6 @@ std::pair<int, float> SCManager::detectLoopClosureID(void) {
      */
     if (min_dist < SC_DIST_THRES) {
         loop_id = nn_idx;
-
-        // std::cout.precision(3);
-        cout << "[Loop found] Nearest distance: " << min_dist << " btn " << polarcontexts_.size() - 1 << " and "
-             << nn_idx << "." << endl;
-        cout << "[Loop found] yaw diff: " << nn_align * PC_UNIT_SECTORANGLE << " deg." << endl;
-    } else {
-        std::cout.precision(3);
-        cout << "[Not loop] Nearest distance: " << min_dist << " btn " << polarcontexts_.size() - 1 << " and " << nn_idx
-             << "." << endl;
-        cout << "[Not loop] yaw diff: " << nn_align * PC_UNIT_SECTORANGLE << " deg." << endl;
     }
 
     // To do: return also nn_align (i.e., yaw diff)
@@ -327,15 +310,6 @@ std::pair<int, float> SCManager::detectLoopClosureID(const int query_idx) {
 
     if (nn_idx != -1 && min_dist < SC_DIST_THRES) {
         loop_id = nn_idx;
-        std::cout.precision(3);
-        cout << "[Loop found] Nearest distance: " << min_dist << " btn " << query_idx << " and " << nn_idx << "."
-             << endl;
-        cout << "[Loop found] yaw diff: " << nn_align * PC_UNIT_SECTORANGLE << " deg." << endl;
-    } else {
-        std::cout.precision(3);
-        cout << "[Not loop] Nearest distance: " << min_dist << " btn " << query_idx << " and " << nn_idx << "."
-             << endl;
-        cout << "[Not loop] yaw diff: " << nn_align * PC_UNIT_SECTORANGLE << " deg." << endl;
     }
 
     float yaw_diff_rad = deg2rad(nn_align * PC_UNIT_SECTORANGLE);

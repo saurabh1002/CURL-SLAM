@@ -2,7 +2,6 @@
 #define CURLVOXEL_MAPPING_H
 #include "curl_slam/PatchProcession.h"
 #include "curl_slam/Scancontext.h"
-#include "curl_slam/Timer.h"
 #include "curl_slam/curl_tools_light.h"
 #include "curl_slam/light_structure.h"
 #include "curl_slam/load_config.h"
@@ -91,10 +90,6 @@ template <typename BasicType> class CurlVoxelMapping {
     std::pair<int, float> detectLoopClosureID(void);
     std::pair<int, float> detectLoopClosureID(const int query_idx);
 
-    // void curl_registration_method(const double cloud_time, const pcl::PointCloud<PointT>::Ptr &seg_cloud_ptr,
-    //                           const pcl::PointCloud<PointT>::Ptr &ground_cloud_ptr,
-    //                           Eigen::Matrix<double, 4, 4, Eigen::RowMajor> &_T_w_j,
-    //                           std::vector<double> &_preprocessing_time_vec);
     std::pair<std::vector<double>, std::vector<double>>
     preprocessing(const double time, const pcl::PointCloud<PointT>::Ptr &seg_cloud_ptr,
                   const pcl::PointCloud<PointT>::Ptr &ground_cloud_ptr, const Eigen::Matrix4f _T_w_j,
@@ -119,8 +114,6 @@ template <typename BasicType> class CurlVoxelMapping {
         std::pair<std::vector<double>, std::vector<double>> &bounds_w,
         std::unordered_set<std::array<int, 2>, Voxel2DHashFuncPrimeArray> &new_box_map, int &_number_patches,
         bool &_is_add_keyframe, bool &_is_add_trajectory_segment, std::vector<BasicType> &_our_costs,
-        std::vector<double> &_preprocessing_time_vec, std::vector<double> &_data_association_time_vec,
-        std::vector<double> &_opt_time_vec,
         std::vector<std::pair<std::vector<double>, std::vector<double>>> &query_bounding_box_vec,
         std::vector<std::pair<std::vector<double>, std::vector<double>>> &map_bounding_box_vec);
 
@@ -181,8 +174,6 @@ template <typename BasicType> class CurlVoxelMapping {
     SCManager scManager;
     std::shared_ptr<CURL_TRACKING_CONFIG> curl_tracking_config_ptr;
     // StopCallback stop_callback;
-    Timer _preprocessing_timer, _data_asso_timer, _opt_timer;
-    Timer _preprocessing_timer_minimum, _data_asso_timer_minimum, _opt_timer_minimum;
 };
 
 #endif // CURLVOXEL_MAPPING_H

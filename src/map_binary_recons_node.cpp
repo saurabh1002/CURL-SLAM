@@ -30,7 +30,6 @@ int main(int argc, char **argv) {
     load_debug_config(argv[1], *debug_config_ptr);
     debug_config_ptr->color_map.resize(5, 3);
     debug_config_ptr->color_map << 1, 0, 0, 0, 1, 0, 0, 0, 1, 1, 1, 0, 0, 1, 1;
-    std::cout << "Sequence: " << debug_config_ptr->seq << std::endl;
     std::shared_ptr<AABB_CONFIG> aabb_config_ptr = std::make_shared<AABB_CONFIG>();
     load_aabb_config(argv[1], *aabb_config_ptr);
     std::shared_ptr<CURL_TRACKING_CONFIG> curl_tracking_config_ptr = std::make_shared<CURL_TRACKING_CONFIG>();
